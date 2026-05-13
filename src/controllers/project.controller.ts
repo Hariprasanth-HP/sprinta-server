@@ -1,14 +1,11 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { type Prisma, PrismaClient } from "@prisma/client";
 import type { Request, Response } from "express";
 import { err } from "../lib/helper";
 
 const prisma = new PrismaClient();
 
 // CREATE project
-const createProject = async (
-  req: Request,
-  res: Response,
-) => {
+const createProject = async (req: Request, res: Response) => {
   try {
     const { name, description, creatorId, teamId } = req.body;
 
@@ -29,8 +26,7 @@ const createProject = async (
 
     // creatorId is string UUID
     const effectiveCreatorId: string | null =
-      req.user?.id ??
-      (creatorId ? String(creatorId).trim() : null);
+      req.user?.id ?? (creatorId ? String(creatorId).trim() : null);
 
     // Ensure creator exists
     if (effectiveCreatorId) {
@@ -64,13 +60,8 @@ const createProject = async (
       success: true,
       data: project,
     });
-
   } catch (e: any) {
-
-    if (
-      e.code === "P2002" &&
-      e.meta?.target?.includes("name")
-    ) {
+    if (e.code === "P2002" && e.meta?.target?.includes("name")) {
       return err(res, 409, "Project name already exists.");
     }
 
@@ -81,10 +72,7 @@ const createProject = async (
 };
 
 // GET all projects
-const getProjects = async (
-  req: Request,
-  res: Response,
-) => {
+const getProjects = async (req: Request, res: Response) => {
   try {
     const { teamId } = req.query;
     const where: Prisma.ProjectWhereInput = {};
@@ -110,10 +98,7 @@ const getProjects = async (
 };
 
 // GET single project
-const getProject = async (
-  req: Request,
-  res: Response,
-) => {
+const getProject = async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
 
@@ -136,9 +121,7 @@ const getProject = async (
       success: true,
       data: project,
     });
-
   } catch (e: any) {
-
     console.error("getProject error:", e);
 
     return err(res, 500, "Failed to fetch project.");
@@ -146,36 +129,19 @@ const getProject = async (
 };
 
 // UPDATE project
-const updateProject = async (
-  req: Request,
-  res: Response,
-) => {
+const updateProject = async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (Number.isNaN(id)) return err(res, 400, "Invalid project id.");
 
-    const {
-      name,
-      description,
-      creatorId,
-      teamId,
-    } = req.body;
+    const { name, description, creatorId, teamId } = req.body;
 
     const data: Prisma.ProjectUncheckedUpdateInput = {};
 
     // name
     if (name !== undefined) {
-
-      if (
-        !name ||
-        typeof name !== "string" ||
-        name.trim().length === 0
-      ) {
-        return err(
-          res,
-          400,
-          "If provided, name must be a non-empty string.",
-        );
+      if (!name || typeof name !== "string" || name.trim().length === 0) {
+        return err(res, 400, "If provided, name must be a non-empty string.");
       }
 
       data.name = name.trim();
@@ -183,29 +149,16 @@ const updateProject = async (
 
     // description
     if (description !== undefined) {
-
-      if (
-        description &&
-        description.length > 255
-      ) {
-        return err(
-          res,
-          400,
-          "Description must be at most 255 characters.",
-        );
+      if (description && description.length > 255) {
+        return err(res, 400, "Description must be at most 255 characters.");
       }
 
-      data.description =
-        description === null
-          ? null
-          : description;
+      data.description = description === null ? null : description;
     }
 
     // teamId
     if (teamId !== undefined) {
-
-      const parsedTeamId =
-        parseInt(String(teamId || "").trim(), 10);
+      const parsedTeamId = parseInt(String(teamId || "").trim(), 10);
 
       if (Number.isNaN(parsedTeamId)) {
         return err(res, 400, "Invalid teamId");
@@ -216,37 +169,23 @@ const updateProject = async (
 
     // creatorId
     if (creatorId !== undefined) {
-
       if (creatorId === null) {
-
         data.creatorId = null;
-
       } else {
-
-        const parsed =
-          String(creatorId).trim();
+        const parsed = String(creatorId).trim();
 
         if (!parsed) {
-          return err(
-            res,
-            400,
-            "creatorId must be valid",
-          );
+          return err(res, 400, "creatorId must be valid");
         }
 
-        const user =
-          await prisma.user.findUnique({
-            where: {
-              id: parsed,
-            },
-          });
+        const user = await prisma.user.findUnique({
+          where: {
+            id: parsed,
+          },
+        });
 
         if (!user) {
-          return err(
-            res,
-            400,
-            "Creator user not found.",
-          );
+          return err(res, 400, "Creator user not found.");
         }
 
         data.creatorId = parsed;
@@ -254,37 +193,26 @@ const updateProject = async (
     }
 
     // Ensure project exists
-    const existing =
-      await prisma.project.findUnique({
-        where: { id },
-      });
+    const existing = await prisma.project.findUnique({
+      where: { id },
+    });
 
     if (!existing) {
       return err(res, 404, "Project not found.");
     }
 
-    const updated =
-      await prisma.project.update({
-        where: { id },
-        data,
-      });
+    const updated = await prisma.project.update({
+      where: { id },
+      data,
+    });
 
     return res.status(200).json({
       success: true,
       data: updated,
     });
-
   } catch (e: any) {
-
-    if (
-      e.code === "P2002" &&
-      e.meta?.target?.includes("name")
-    ) {
-      return err(
-        res,
-        409,
-        "Project name already exists.",
-      );
+    if (e.code === "P2002" && e.meta?.target?.includes("name")) {
+      return err(res, 409, "Project name already exists.");
     }
 
     console.error("updateProject error:", e);
@@ -294,21 +222,17 @@ const updateProject = async (
 };
 
 // DELETE project
-const deleteProject = async (
-  req: Request,
-  res: Response,
-) => {
+const deleteProject = async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (Number.isNaN(id)) return err(res, 400, "Invalid project id.");
 
-    const project =
-      await prisma.project.findUnique({
-        where: { id },
-        include: {
-          tasks: true,
-        },
-      });
+    const project = await prisma.project.findUnique({
+      where: { id },
+      include: {
+        tasks: true,
+      },
+    });
 
     if (!project) {
       return err(res, 404, "Project not found.");
@@ -322,27 +246,15 @@ const deleteProject = async (
       success: true,
       data: `Project ${id} deleted`,
     });
-
   } catch (e: any) {
-
     console.error("deleteProject error:", e);
 
     if (e.code === "P2003") {
-      return err(
-        res,
-        409,
-        "Project has dependent records and cannot be deleted.",
-      );
+      return err(res, 409, "Project has dependent records and cannot be deleted.");
     }
 
     return err(res, 500, "Failed to delete project.");
   }
 };
 
-export {
-  createProject,
-  deleteProject,
-  getProject,
-  getProjects,
-  updateProject,
-};
+export { createProject, deleteProject, getProject, getProjects, updateProject };

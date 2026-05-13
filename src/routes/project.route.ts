@@ -7,6 +7,7 @@ import {
   getProjects,
   updateProject,
 } from "../controllers/project.controller";
+
 const router = express.Router();
 
 router.post("/", createProject);

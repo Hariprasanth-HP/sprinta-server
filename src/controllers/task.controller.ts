@@ -1,5 +1,5 @@
 // backend/src/controllers/taskController.ts
-import { ActivityKind, Priority, Prisma, PrismaClient } from "@prisma/client";
+import { ActivityKind, type Priority, Prisma, PrismaClient } from "@prisma/client";
 import type { Request, Response } from "express";
 
 const prisma = new PrismaClient();
@@ -38,7 +38,6 @@ type TaskQuery = {
   id?: string | string[] | undefined;
 };
 
-
 /* ---------- CREATE task ---------- */
 const createTask = async (
   req: Request<unknown, unknown, CreateTaskBody>,
@@ -53,8 +52,8 @@ const createTask = async (
       priority,
       dueDate,
       listId = null,
-      assignedById = '',
-      assigneeId = '',
+      assignedById = "",
+      assigneeId = "",
       statusId = 0,
     } = req.body || {};
 
@@ -222,7 +221,7 @@ const updateTask = async (
     } = incoming;
 
     // Helper to see if a field was provided in the request body (even if null)
-    const has = (k: string) => Object.prototype.hasOwnProperty.call(incoming, k);
+    const has = (k: string) => Object.hasOwn(incoming, k);
 
     // Basic validation for fields that are provided
     const dataToUpdate: Partial<UpdateTaskBody> = {};

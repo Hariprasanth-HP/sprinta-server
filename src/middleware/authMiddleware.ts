@@ -1,57 +1,39 @@
 // src/middleware/authMiddleware.ts
 
-import { supabase } from '../controllers/auth/auth.controller'
-import type {
-  NextFunction,
-  Request,
-  Response
-} from 'express'
+import type { NextFunction, Request, Response } from "express";
+import { supabase } from "../controllers/auth/auth.controller";
 
-
-export async function requireAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
-    const auth =
-      req.headers.authorization
+    const auth = req.headers.authorization;
     if (!auth) {
       return res.status(401).json({
-        error: 'Missing authorization header'
-      })
-
+        error: "Missing authorization header",
+      });
     }
-    const token = auth.split(' ')[1]
+    const token = auth.split(" ")[1];
     if (!token) {
       return res.status(401).json({
-        error: 'Invalid token'
-      })
-
+        error: "Invalid token",
+      });
     }
     const {
       data: { user },
-      error
-    } = await supabase.auth.getUser(token)
+      error,
+    } = await supabase.auth.getUser(token);
 
     if (error || !user) {
-
       return res.status(401).json({
-        error: 'Unauthorized'
-      })
-
+        error: "Unauthorized",
+      });
     }
 
-    req.user = user
+    req.user = user;
 
-    next()
-
+    next();
   } catch (err) {
-
     return res.status(401).json({
-      error: 'Invalid or expired token'
-    })
-
+      error: "Invalid or expired token",
+    });
   }
-
 }

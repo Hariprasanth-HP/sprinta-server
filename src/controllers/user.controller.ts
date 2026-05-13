@@ -1,7 +1,7 @@
 // src/controllers/userController.ts
-import { Prisma, PrismaClient, User } from "@prisma/client";
+import { type Prisma, PrismaClient, type User } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { NextFunction, Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { err } from "../lib/helper";
 
 const prisma = new PrismaClient();
@@ -64,7 +64,7 @@ export const createUser = async (
         email: email.toLowerCase(),
         name: name.trim(),
         password: hashed,
-        id: id.trim()
+        id: id.trim(),
       },
     });
 
@@ -190,8 +190,7 @@ export const updateUser = async (
   try {
     const id = req.params.id;
 
-    if (!id?.trim())
-      return void err(res, 400, "Invalid user id.");
+    if (!id?.trim()) return void err(res, 400, "Invalid user id.");
 
     const { email, name, password } = req.body;
     const data: Partial<{ email: string; name: string; password: string }> = {};

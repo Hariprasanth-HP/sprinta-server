@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import { err } from "../lib/helper";
 
 // backend/src/controllers/ListController.js

@@ -1,5 +1,5 @@
-import { Prisma, PrismaClient } from "@prisma/client";
-import { Request, Response } from "express";
+import { type Prisma, PrismaClient } from "@prisma/client";
+import type { Request, Response } from "express";
 
 import { err, isPrismaKnownError } from "../lib/helper";
 

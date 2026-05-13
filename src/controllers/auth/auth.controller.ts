@@ -1,15 +1,13 @@
-import { PrismaClient } from '@prisma/client';
-import { createClient } from '@supabase/supabase-js'
+import { PrismaClient } from "@prisma/client";
+import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 
-import { Request, Response } from 'express';
+import type { Request, Response } from "express";
+
 dotenv.config();
 
 const prisma = new PrismaClient();
-export const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
-)
+export const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 export const signup = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
@@ -119,7 +117,7 @@ export const updatePassword = async (newPassword: string) => {
 };
 export const supabaseGoogleAuth = async (req: Request, res: Response) => {
   const { email, name, picture, supabaseId } = req.body;
-  console.log('reqbodyy', req.body)
+  console.log("reqbodyy", req.body);
   if (!email) {
     return res.status(400).json({ error: "Email required" });
   }

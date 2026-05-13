@@ -1,7 +1,15 @@
 // src/routes/authRoutes.ts
-import { getUser, login, logout, refresh, signup, supabaseGoogleAuth } from "../../controllers/auth/auth.controller";
+
 import cookieParser from "cookie-parser";
 import express from "express";
+import {
+  getUser,
+  login,
+  logout,
+  refresh,
+  signup,
+  supabaseGoogleAuth,
+} from "../../controllers/auth/auth.controller";
 
 const router = express.Router();
 router.use(cookieParser());

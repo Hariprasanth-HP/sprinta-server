@@ -3,7 +3,8 @@ import { PrismaClient } from "@prisma/client";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
-
+import swaggerJsdoc from "swagger-jsdoc";
+import swaggerUi from "swagger-ui-express";
 import { requireAuth } from "./middleware/authMiddleware";
 import ActivityRouter from "./routes/activity.route";
 // import your routers / middleware (update paths as needed)
@@ -17,8 +18,6 @@ import TaskRouter from "./routes/task.route";
 import TeamRouter from "./routes/team.route";
 import UploadRouter from "./routes/upload.route";
 import UserRouter from "./routes/user.route";
-import swaggerUi from "swagger-ui-express";
-import swaggerJsdoc from "swagger-jsdoc";
 
 dotenv.config();
 
@@ -29,9 +28,8 @@ const PORT = Number(process.env.PORT ?? 4000);
 const allowedOrigins = [
   "http://localhost:5173", // Vite dev
   "http://localhost:3000", // Next.js / CRA
-  "https://hariprasanth-hp.github.io"
+  "https://hariprasanth-hp.github.io",
 ];
-
 
 const swaggerSpec = swaggerJsdoc({
   definition: {
@@ -52,7 +50,7 @@ const swaggerSpec = swaggerJsdoc({
 
 app.use(
   cors({
-    origin: function (origin, callback) {
+    origin: (origin, callback) => {
       // allow requests with no origin (like mobile apps or curl)
       if (!origin) return callback(null, true);
       if (origin === `http://localhost:${PORT}`) {

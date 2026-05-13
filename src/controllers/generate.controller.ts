@@ -1,7 +1,8 @@
 // backend/src/controllers/taskStatusController.js
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
+
 dotenv.config();
 
 // Init Gemini client (the SDK reads GEMINI_API_KEY from env by default)

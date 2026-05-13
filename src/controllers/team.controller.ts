@@ -1,6 +1,6 @@
 // backend/src/controllers/TeamController.ts
 import { PrismaClient } from "@prisma/client";
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import { err } from "../lib/helper";
 
 const prisma = new PrismaClient();
