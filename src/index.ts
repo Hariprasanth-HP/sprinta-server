@@ -68,6 +68,12 @@ app.use(
   }),
 );
 app.use(express.json());
+app.get("/", (_, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Sprinta API is running 🚀",
+  });
+});
 
 console.log("DATABASE_URL:", process?.env?.DATABASE_URL, process?.env?.ACCESS_TOKEN_EXPIRES_IN);
 
