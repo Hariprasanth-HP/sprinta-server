@@ -123,7 +123,7 @@ export const supabaseGoogleAuth = async (req: Request, res: Response) => {
   }
 
   let user = await prisma.user.findUnique({
-    where: { email },
+    where: { email, googleId: supabaseId },
   });
 
   if (user) {
