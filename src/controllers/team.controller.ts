@@ -144,7 +144,7 @@ const addUsersToTeam = async (req: Request, res: Response) => {
       if (bodyCreatorId === null) {
         teamUpdateData.creatorId = null;
       } else {
-        const parsed = parseInt(String(bodyCreatorId), 10);
+        const parsed = bodyCreatorId;
         if (Number.isNaN(parsed)) return err(res, 400, "creatorId must be a number or null");
         const user = await prisma.user.findUnique({ where: { id: parsed } });
         if (!user) return err(res, 400, "Creator user not found.");
@@ -317,7 +317,7 @@ const updateTeam = async (req: Request, res: Response) => {
       if (creatorId === null) {
         data.creatorId = null;
       } else {
-        const parsed = parseInt(String(creatorId), 10);
+        const parsed = creatorId;
         if (Number.isNaN(parsed)) return err(res, 400, "creatorId must be a number or null");
         const user = await prisma.user.findUnique({ where: { id: parsed } });
         if (!user) return err(res, 400, "Creator user not found.");

@@ -13,32 +13,22 @@ export async function requireAuth(
   res: Response,
   next: NextFunction
 ) {
-
   try {
-
     const auth =
       req.headers.authorization
-
     if (!auth) {
-
       return res.status(401).json({
         error: 'Missing authorization header'
       })
 
     }
-
     const token = auth.split(' ')[1]
-
     if (!token) {
-
       return res.status(401).json({
         error: 'Invalid token'
       })
 
     }
-
-    // Verify Supabase JWT
-
     const {
       data: { user },
       error
@@ -51,8 +41,6 @@ export async function requireAuth(
       })
 
     }
-
-    // attach user
 
     req.user = user
 

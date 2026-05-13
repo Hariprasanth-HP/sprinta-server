@@ -13,8 +13,8 @@ type CreateTaskBody = {
   priority?: Priority;
   dueDate?: Date;
   listId?: number | null;
-  assignedById?: number | null;
-  assigneeId?: number | null;
+  assignedById?: string | undefined;
+  assigneeId?: string | undefined;
   statusId?: number;
   userId?: number; // optional actor
 };
@@ -27,10 +27,10 @@ type UpdateTaskBody = {
   priority?: unknown;
   dueDate?: unknown | null;
   listId?: unknown | null;
-  assignedById?: unknown | null;
-  assigneeId?: unknown | null;
+  assignedById?: string | undefined;
+  assigneeId?: string | undefined;
   statusId?: unknown | null;
-  userId?: unknown;
+  userId?: string;
 };
 
 type TaskQuery = {
@@ -38,10 +38,6 @@ type TaskQuery = {
   id?: string | string[] | undefined;
 };
 
-// Prisma error guard
-function isPrismaError(e: unknown): e is { code?: string; meta?: unknown } {
-  return typeof e === "object" && e !== null && "code" in e;
-}
 
 /* ---------- CREATE task ---------- */
 const createTask = async (
@@ -57,8 +53,8 @@ const createTask = async (
       priority,
       dueDate,
       listId = null,
-      assignedById = null,
-      assigneeId = null,
+      assignedById = '',
+      assigneeId = '',
       statusId = 0,
     } = req.body || {};
 
@@ -220,8 +216,8 @@ const updateTask = async (
       priority,
       dueDate,
       listId = null,
-      assignedById = null,
-      assigneeId = null,
+      assignedById = undefined,
+      assigneeId = undefined,
       statusId,
     } = incoming;
 
@@ -303,7 +299,7 @@ const updateTask = async (
     }
 
     if (has("assignedById")) {
-      dataToUpdate.assignedById = assignedById === null ? null : parseInt(String(assignedById), 10);
+      dataToUpdate.assignedById = assignedById;
       if (dataToUpdate.assignedById !== null && Number.isNaN(dataToUpdate.assignedById)) {
         res.status(400).json({
           success: false,
@@ -314,7 +310,7 @@ const updateTask = async (
     }
 
     if (has("assigneeId")) {
-      dataToUpdate.assigneeId = assigneeId === null ? null : parseInt(String(assigneeId), 10);
+      dataToUpdate.assigneeId = assigneeId;
       if (dataToUpdate.assigneeId !== null && Number.isNaN(dataToUpdate.assigneeId)) {
         res.status(400).json({
           success: false,
@@ -387,7 +383,7 @@ const updateTask = async (
             timestamp: new Date().toISOString(),
           } as Prisma.InputJsonValue,
           taskId: id,
-          userId: actorId as number,
+          userId: actorId,
         },
         include: {
           user: true,

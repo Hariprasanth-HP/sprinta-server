@@ -11,6 +11,7 @@ interface CreateUserBody {
   email: string;
   name?: string;
   password: string;
+  id: string;
 }
 interface UpdateUserBody {
   email?: string;
@@ -35,9 +36,13 @@ export const createUser = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { email, name, password } = req.body;
+    const { email, name, password, id } = req.body;
 
     // basic validation
+
+    if (!id?.trim()) {
+      return void err(res, 400, "Invalid user Id");
+    }
     if (!email || typeof email !== "string") {
       res.status(400);
       return void err(res, 400, "Email is required.");
@@ -59,6 +64,7 @@ export const createUser = async (
         email: email.toLowerCase(),
         name: name.trim(),
         password: hashed,
+        id: id.trim()
       },
     });
 
@@ -155,9 +161,10 @@ export const getUsersFromTeam = async (
  */
 export const getUser = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (Number.isNaN(id)) return void err(res, 400, "Invalid user id.");
-
+    const id = req.params.id;
+    if (!id?.trim()) {
+      return void err(res, 400, "Invalid user Id");
+    }
     const user = await prisma.user.findUnique({
       where: { id },
     });
@@ -181,8 +188,10 @@ export const updateUser = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (Number.isNaN(id)) return void err(res, 400, "Invalid user id.");
+    const id = req.params.id;
+
+    if (!id?.trim())
+      return void err(res, 400, "Invalid user id.");
 
     const { email, name, password } = req.body;
     const data: Partial<{ email: string; name: string; password: string }> = {};
@@ -235,8 +244,8 @@ export const updateUser = async (
  */
 export const deleteUser = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(Number(id))) {
+    const id = req.params.id;
+    if (!id?.trim()) {
       return void err(res, 400, "Invalid user Id");
     }
     const userExist = await prisma.user.findUnique({ where: { id } });

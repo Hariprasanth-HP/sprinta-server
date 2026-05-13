@@ -1,9 +1,9 @@
-import { TokenPayload } from "../lib/jwt";
+import type { SupabaseUser } from "@supabase/supabase-js";
 
 declare global {
   namespace Express {
     interface Request {
-      user?: TokenPayload;
+      user?: SupabaseUser;
     }
   }
 }

@@ -1,5 +1,5 @@
 // src/routes/authRoutes.ts
-import { login, logout, refresh, signup, supabaseGoogleAuth } from "../../controllers/auth/auth.controller";
+import { getUser, login, logout, refresh, signup, supabaseGoogleAuth } from "../../controllers/auth/auth.controller";
 import cookieParser from "cookie-parser";
 import express from "express";
 
@@ -49,7 +49,17 @@ router.post("/signup", signup);
  */
 router.post("/google/signup", supabaseGoogleAuth);
 
-/**r.post("/login", login);
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: User login
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Login successful
+ */
+router.post("/login", login);
 
 /**
  * @swagger
@@ -87,5 +97,17 @@ router.post("/refresh", refresh);
  *         description: Logged out successfully
  */
 router.post("/logout", logout);
+
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Get current user
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Current user data
+ */
+router.get("/me", getUser);
 
 export default router;

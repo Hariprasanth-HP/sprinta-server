@@ -183,15 +183,15 @@ const updateMember = async (req: Request, res: Response) => {
       data.about = about === null ? null : about;
     }
 
-    // Optionally change creator (ensure user exists)
+    // Optionally change team (ensure team exists)
     if (teamId !== undefined) {
       if (teamId === null) {
         data.teamId = null;
       } else {
         const parsed = parseInt(teamId);
         if (Number.isNaN(parsed)) return err(res, 400, "teamId must be a number or null");
-        const user = await prisma.user.findUnique({ where: { id: parsed } });
-        if (!user) return err(res, 400, "Creator user not found.");
+        const team = await prisma.team.findUnique({ where: { id: parsed } });
+        if (!team) return err(res, 400, "Team not found.");
         data.teamId = parsed;
       }
     }

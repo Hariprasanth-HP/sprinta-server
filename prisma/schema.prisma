@@ -26,6 +26,8 @@ model User {
 
   provider AuthProvider @default(LOCAL)
 
+  googleId String? @db.Uuid
+
   createdAt DateTime @default(now())
 
   memberships TeamMember[]
@@ -214,6 +216,8 @@ model Activity {
   description String? // comment text OR human-readable summary of update
   metadata    Json? // structured data: field diffs, actor, etc.
   createdAt   DateTime     @default(now())
+
+  isDeleted Boolean @default(false)
 
   // RELATIONS
   taskId Int?
