@@ -79,6 +79,12 @@ console.log("DATABASE_URL:", process?.env?.DATABASE_URL, process?.env?.ACCESS_TO
 
 async function main(): Promise<void> {
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.get("/api/test", (_, res) => {
+    res.status(200).json({
+      success: true,
+      message: "API working without auth 🚀",
+    });
+  });
   // Mount routers
   // Public auth routes
   app.use("/api/auth", AuthRouter);
