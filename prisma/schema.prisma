@@ -1,0 +1,233 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id String @id @db.Uuid
+  email String @unique
+
+  name String @db.VarChar(20)
+
+  password String? @db.VarChar(100)
+
+  picture String? @db.VarChar(250)
+
+  provider AuthProvider @default(LOCAL)
+
+  createdAt DateTime @default(now())
+
+  memberships TeamMember[]
+
+  tasksAssignedBy Task[] @relation("TaskAssignedBy")
+
+  tasksAssignedTo Task[] @relation("TaskAssignee")
+
+  createdTeams Team[] @relation("CreatedTeams")
+
+  refreshTokens RefreshToken[]
+
+  projects Project[]
+
+  createdMembers TeamMember[] @relation("AddedById")
+
+  activities Activity[]
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+model Team {
+  id        Int          @id @default(autoincrement())
+  name      String       @db.VarChar(20)
+  about     String       @db.VarChar(100)
+  createdAt DateTime     @default(now())
+  creatorId String       @db.Uuid
+  creator   User         @relation("CreatedTeams", fields: [creatorId], references: [id])
+  members   TeamMember[]
+  projects  Project[]
+}
+
+model TeamMember {
+  id     Int  @id @default(autoincrement())
+  team   Team @relation(fields: [teamId], references: [id])
+  teamId Int
+
+  // <-- user is optional until they sign up
+  userId String? @db.Uuid
+
+  user User? @relation(fields: [userId], references: [id])
+
+  // You directly store what admin enters
+  email String // required
+  name  String?
+  role  String // e.g. "member", "admin", later you can make enum
+
+  addedAt   DateTime @default(now())
+  addedById String?  @db.Uuid
+  addedBy   User?    @relation("AddedById", fields: [addedById], references: [id])
+
+  @@unique([teamId, email], name: "uniq_team_email")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  tokenHash String
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
+}
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String   @db.VarChar(255)
+  createdAt   DateTime @default(now())
+
+  teamId Int?
+  team   Team? @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  creatorId String? @db.Uuid
+  creator   User?   @relation(fields: [creatorId], references: [id])
+
+  tasks  Task[]
+  status TaskStatus[]
+
+  lists List[]
+
+  @@index([creatorId])
+}
+
+model List {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  projectId Int
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  tasks Task[]
+}
+
+model Task {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String   @db.VarChar(255)
+  createdAt   DateTime @default(now())
+
+  priority Priority  @default(MEDIUM)
+  dueDate  DateTime?
+
+  parentTaskId Int?
+  parentTask   Task?  @relation("TaskSubTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subTasks     Task[] @relation("TaskSubTasks")
+
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  listId Int?
+  list   List? @relation(fields: [listId], references: [id])
+
+  assignedById String @db.Uuid
+  assignedBy   User?  @relation("TaskAssignedBy", fields: [assignedById], references: [id])
+
+  assigneeId String? @db.Uuid
+  assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  activities Activity[]
+
+  statusId Int?
+  status   TaskStatus? @relation(fields: [statusId], references: [id], onDelete: SetNull)
+
+  assets Asset[]
+
+  @@index([projectId])
+  @@index([parentTaskId])
+  @@index([assignedById])
+  @@index([assigneeId])
+  @@index([statusId])
+}
+
+enum AssetType {
+  IMAGE
+  VIDEO
+  FILE
+}
+
+model Asset {
+  id       Int       @id @default(autoincrement())
+  url      String
+  publicId String
+  type     AssetType
+
+  taskId Int
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+}
+
+model TaskStatus {
+  id        Int      @id @default(autoincrement())
+  name      String
+  color     String? // optional display color (e.g. "#f59e0b" or "blue")
+  sortOrder Int? // optional order within project
+  createdAt DateTime @default(now())
+
+  // Scope statuses to a project so users can create custom statuses per project
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  tasks Task[] // inverse relation
+
+  @@unique([projectId, name]) // prevents duplicate status names in same project
+  @@index([projectId])
+}
+
+enum ActivityKind {
+  COMMENT // user comment with replies
+  TASK_UPDATE // any change to a Task field
+  SYSTEM // automated events
+  NOTE // optional general notes
+  WORKLOG // time entries if needed later
+}
+
+model Activity {
+  id          Int          @id @default(autoincrement())
+  kind        ActivityKind
+  description String? // comment text OR human-readable summary of update
+  metadata    Json? // structured data: field diffs, actor, etc.
+  createdAt   DateTime     @default(now())
+
+  // RELATIONS
+  taskId Int?
+  task   Task? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  userId String? @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // COMMENT THREADING (self relation)
+  parentId Int?
+  parent   Activity?  @relation("ActivityReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Activity[] @relation("ActivityReplies")
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([kind, createdAt])
+}
