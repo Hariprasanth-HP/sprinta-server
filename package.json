@@ -25,7 +25,7 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "tsc --noCheck",
+    "build": "prisma generate && tsc --noCheck",
     "start": "nodemon dist/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
