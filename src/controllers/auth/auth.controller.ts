@@ -8,17 +8,61 @@ dotenv.config();
 
 const prisma = new PrismaClient();
 export const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
-export const signup = async (req: Request, res: Response) => {
-  const { email, password } = req.body;
-
-  const { data, error } = await supabase.auth.signUp({
+export const signup = async (
+  req: Request,
+  res: Response
+) => {
+  const {
     email,
     password,
+    name,
+    picture,
+  } = req.body;
+
+  // Create Supabase auth user
+  const { data, error } =
+    await supabase.auth.signUp({
+      email,
+      password,
+
+      options: {
+        data: {
+          name,
+          picture,
+        },
+      },
+    });
+
+  if (error) {
+    return res.status(400).json({
+      error: error.message,
+    });
+  }
+
+  const authUser = data.user;
+
+  if (!authUser) {
+    return res.status(400).json({
+      error: "User creation failed",
+    });
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      id: authUser.id,
+      email: authUser.email!,
+      name: name ?? "User",
+      picture,
+      provider: "LOCAL",
+    },
   });
 
-  if (error) return res.status(400).json({ error: error.message });
-
-  return res.json(data);
+  return res.json({
+    data: {
+      user,
+      session: data.session,
+    }
+  });
 };
 
 export const login = async (req: Request, res: Response) => {
@@ -29,9 +73,9 @@ export const login = async (req: Request, res: Response) => {
     password,
   });
 
-  if (error) return res.status(401).json({ error: error.message });
+  if (error) return res.status(401).json({ error: error.message, data: undefined, success: false });
 
-  return res.json(data);
+  return res.json({ data, error: undefined });
 };
 
 export const refresh = async (req: Request, res: Response) => {
@@ -123,7 +167,7 @@ export const supabaseGoogleAuth = async (req: Request, res: Response) => {
   }
 
   let user = await prisma.user.findUnique({
-    where: { email, googleId: supabaseId },
+    where: { email },
   });
 
   if (user) {
