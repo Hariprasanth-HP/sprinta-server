@@ -246,8 +246,8 @@ const getTeams = async (req: Request, res: Response) => {
     const where: any = {};
 
     if (typeof creatorId !== "undefined" && creatorId !== null && String(creatorId).length > 0) {
-      const id = parseInt(String(creatorId), 10);
-      if (Number.isNaN(id)) return err(res, 400, "creatorId must be a number");
+      const id = creatorId
+      if (id.trim().length === 0) return err(res, 400, "creatorId must be a string");
       where.creatorId = id;
     }
 

@@ -194,5 +194,5 @@ export const supabaseGoogleAuth = async (req: Request, res: Response) => {
     },
   });
 
-  return res.json(user);
+  return res.json({ data: user, error: undefined });
 };
