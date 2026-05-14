@@ -33,7 +33,7 @@ function sanitizeUser(user: (Partial<User> & Record<string, any>) | null) {
 export const createUser = async (
   req: Request<Record<string, never>, unknown, CreateUserBody>,
   res: Response,
-  next: NextFunction,
+  _next: NextFunction,
 ): Promise<void> => {
   try {
     const { email, name, password, id } = req.body;
@@ -129,7 +129,7 @@ export const getUsersFromTeam = async (
     const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
     const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || "20", 10)));
     const skip = (page - 1) * limit;
-    const parsedTeamId = parseInt(String(req.query?.teamId));
+    const parsedTeamId = parseInt(String(req.query?.teamId), 10);
     if (Number.isNaN(parsedTeamId)) return void err(res, 400, "Invalid Team id.");
 
     const [users, total] = await Promise.all([

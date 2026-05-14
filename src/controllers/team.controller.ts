@@ -101,7 +101,7 @@ async function getTeamsFromUser(req: Request, res: Response) {
     const user = req.body.user;
     console.log("user111111", user);
 
-    if (!user || !user.email) {
+    if (!user?.email) {
       return err(res, 400, "User (with email) is required.");
     }
 
@@ -164,7 +164,7 @@ const addUsersToTeam = async (req: Request, res: Response) => {
 
       // Validate entries
       const sanitizedMembers = members.map((m: any) => {
-        if (!m || !m.email || typeof m.email !== "string" || m.email.trim() === "") {
+        if (!m?.email || typeof m.email !== "string" || m.email.trim() === "") {
           throw new Error("Each member must include a valid email.");
         }
         return {
@@ -246,8 +246,8 @@ const getTeams = async (req: Request, res: Response) => {
     const where: any = {};
 
     if (typeof creatorId !== "undefined" && creatorId !== null && String(creatorId).length > 0) {
-      const id = creatorId
-      if (id.trim().length === 0) return err(res, 400, "creatorId must be a string");
+      const id = String(creatorId).trim();
+      if (id.length === 0) return err(res, 400, "creatorId must be a string");
       where.creatorId = id;
     }
 

@@ -78,7 +78,7 @@ const getProjects = async (req: Request, res: Response) => {
     const where: Prisma.ProjectWhereInput = {};
 
     if (teamId) {
-      const id = parseInt(teamId as string);
+      const id = parseInt(teamId as string, 10);
       if (Number.isNaN(id)) return err(res, 400, "teamId must be a number");
       where.teamId = id;
     } else {
@@ -100,7 +100,7 @@ const getProjects = async (req: Request, res: Response) => {
 // GET single project
 const getProject = async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
 
     if (Number.isNaN(id)) {
       return err(res, 400, "Invalid project id.");
@@ -131,7 +131,7 @@ const getProject = async (req: Request, res: Response) => {
 // UPDATE project
 const updateProject = async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return err(res, 400, "Invalid project id.");
 
     const { name, description, creatorId, teamId } = req.body;
@@ -224,7 +224,7 @@ const updateProject = async (req: Request, res: Response) => {
 // DELETE project
 const deleteProject = async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return err(res, 400, "Invalid project id.");
 
     const project = await prisma.project.findUnique({

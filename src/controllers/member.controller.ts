@@ -101,7 +101,7 @@ const createMembers = async (req: Request, res: Response) => {
     });
   } catch (e: any) {
     // bubble up thrown validation errors
-    if (e && e.status && e.message) return err(res, e.status, e.message);
+    if (e?.status && e.message) return err(res, e.status, e.message);
 
     // Prisma unique constraint error on some other field
     if (e && e.code === "P2002") {
@@ -120,9 +120,9 @@ const getMembers = async (req: Request, res: Response) => {
     const where: Prisma.TeamMemberWhereInput = {};
 
     if (teamId) {
-      const id = parseInt(teamId as string);
+      const id = parseInt(teamId as string, 10);
       if (Number.isNaN(id)) return err(res, 400, "teamId must be a number");
-      where["teamId"] = id;
+      where.teamId = id;
     } else {
       return err(res, 500, "Creator Id should be sent");
     }
@@ -143,7 +143,7 @@ const getMembers = async (req: Request, res: Response) => {
 // GET single member by id (includes projects)
 const getMember = async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return err(res, 400, "Invalid member id.");
 
     const member = await prisma.teamMember.findUnique({
@@ -163,7 +163,7 @@ const getMember = async (req: Request, res: Response) => {
 // UPDATE member
 const updateMember = async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return err(res, 400, "Invalid member id.");
 
     const { name, about, teamId } = req.body;
@@ -188,7 +188,7 @@ const updateMember = async (req: Request, res: Response) => {
       if (teamId === null) {
         data.teamId = null;
       } else {
-        const parsed = parseInt(teamId);
+        const parsed = parseInt(teamId, 10);
         if (Number.isNaN(parsed)) return err(res, 400, "teamId must be a number or null");
         const team = await prisma.team.findUnique({ where: { id: parsed } });
         if (!team) return err(res, 400, "Team not found.");
@@ -226,7 +226,7 @@ const updateMember = async (req: Request, res: Response) => {
 // Default safety: disallow deleting if projects exist. If you prefer cascade, adjust logic.
 const deleteMember = async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return err(res, 400, "Invalid member id.");
 
     const member = await prisma.teamMember.findUnique({

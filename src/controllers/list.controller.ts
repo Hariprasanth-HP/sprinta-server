@@ -16,7 +16,7 @@ const createList = async (req: Request, res: Response) => {
     }
 
     // Prefer authenticated project as creator if available
-    const effectiveprojectId = projectId ? parseInt(projectId) : null;
+    const effectiveprojectId = projectId ? parseInt(projectId, 10) : null;
 
     // If projectId provided, ensure project exists
     if (effectiveprojectId) {
@@ -56,7 +56,7 @@ const getLists = async (req: Request, res: Response) => {
     const where: Prisma.ListWhereInput = {};
 
     if (projectId) {
-      const id: number = parseInt(String(projectId));
+      const id: number = parseInt(String(projectId), 10);
       if (Number.isNaN(id)) return err(res, 400, "projectId must be a number");
       where.projectId = id;
     } else {
@@ -78,7 +78,7 @@ const getLists = async (req: Request, res: Response) => {
 // GET single List by id (includes projects)
 const getList = async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return err(res, 400, "Invalid List id.");
 
     const List = await prisma.list.findUnique({
@@ -97,7 +97,7 @@ const getList = async (req: Request, res: Response) => {
 // UPDATE List
 const updateList = async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return err(res, 400, "Invalid List id.");
 
     const { name, projectId } = req.body;
@@ -164,7 +164,7 @@ const updateList = async (req: Request, res: Response) => {
 // Default safety: disallow deleting if projects exist. If you prefer cascade, adjust logic.
 const deleteList = async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return err(res, 400, "Invalid List id.");
 
     const List = await prisma.list.findUnique({

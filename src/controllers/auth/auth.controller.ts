@@ -8,30 +8,21 @@ dotenv.config();
 
 const prisma = new PrismaClient();
 export const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
-export const signup = async (
-  req: Request,
-  res: Response
-) => {
-  const {
-    email,
-    password,
-    name,
-    picture,
-  } = req.body;
+export const signup = async (req: Request, res: Response) => {
+  const { email, password, name, picture } = req.body;
 
   // Create Supabase auth user
-  const { data, error } =
-    await supabase.auth.signUp({
-      email,
-      password,
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
 
-      options: {
-        data: {
-          name,
-          picture,
-        },
+    options: {
+      data: {
+        name,
+        picture,
       },
-    });
+    },
+  });
 
   if (error) {
     return res.status(400).json({
@@ -61,7 +52,7 @@ export const signup = async (
     data: {
       user,
       session: data.session,
-    }
+    },
   });
 };
 
@@ -121,7 +112,7 @@ export const logout = async (req: Request, res: Response) => {
     });
 
     return res.json({ message: "Logged out successfully" });
-  } catch (error) {
+  } catch (_error) {
     return res.status(500).json({ error: "Logout failed" });
   }
 };
@@ -149,7 +140,7 @@ export const resetPassword = async (email: string) => {
 };
 
 export const updatePassword = async (newPassword: string) => {
-  const { data, error } = await supabase.auth.updateUser({
+  const { data: _data, error } = await supabase.auth.updateUser({
     password: newPassword,
   });
 

@@ -280,7 +280,7 @@ const updateTask = async (
 
     if (has("dueDate")) {
       dataToUpdate.dueDate = dueDate === null ? null : new Date(String(dueDate));
-      if (dueDate !== null && isNaN((dataToUpdate.dueDate as Date).getTime())) {
+      if (dueDate !== null && Number.isNaN((dataToUpdate.dueDate as Date).getTime())) {
         res.status(400).json({
           success: false,
           error: "dueDate must be a valid date or null.",
