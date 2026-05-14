@@ -1,5 +1,6 @@
-import { AssetType, PrismaClient } from "@prisma/client";
+import { AssetType } from "@prisma/client";
 import type { Request, Response } from "express";
+import { prisma } from "../db";
 
 /**
  * Upload images / videos to Cloudinary
@@ -7,7 +8,6 @@ import type { Request, Response } from "express";
  * - single file: upload.single("file")
  * - multiple files: upload.array("files", 5)
  */
-const prisma = new PrismaClient();
 export const uploadMedia = async (req: Request, res: Response) => {
   try {
     const taskId = Number(req.query.taskId);

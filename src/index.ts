@@ -1,10 +1,11 @@
 // src/index.ts
-import { PrismaClient } from "@prisma/client";
+
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
+import { prisma } from "./db";
 import { requireAuth } from "./middleware/authMiddleware";
 import ActivityRouter from "./routes/activity.route";
 // import your routers / middleware (update paths as needed)
@@ -22,7 +23,6 @@ import UserRouter from "./routes/user.route";
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();
 const PORT = Number(process.env.PORT ?? 4000);
 // ✅ CORS CONFIG
 const allowedOrigins = [

@@ -1,10 +1,7 @@
-import { type Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
-
+import { prisma } from "../db";
 import { err, isPrismaKnownError } from "../lib/helper";
-
-// backend/src/controllers/memberController.js
-const prisma = new PrismaClient();
 
 // CREATE member
 // Assumes: prisma is imported and `err(res, code, message)` helper exists

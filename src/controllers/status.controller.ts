@@ -1,9 +1,7 @@
 // backend/src/controllers/taskStatusController.ts
-import { PrismaClient } from "@prisma/client";
 import type { Request, Response } from "express";
+import { prisma } from "../db";
 import { err } from "../lib/helper";
-
-const prisma = new PrismaClient();
 
 // Prisma error type guard
 function isPrismaError(e: unknown): e is { code: string } {

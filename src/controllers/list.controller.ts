@@ -1,9 +1,7 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
+import { prisma } from "../db";
 import { err } from "../lib/helper";
-
-// backend/src/controllers/ListController.js
-const prisma = new PrismaClient();
 
 // CREATE List
 const createList = async (req: Request, res: Response) => {

@@ -1,8 +1,7 @@
 // backend/src/controllers/taskController.ts
-import { ActivityKind, type Priority, Prisma, PrismaClient } from "@prisma/client";
+import { ActivityKind, type Priority, Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
-
-const prisma = new PrismaClient();
+import { prisma } from "../db";
 
 // Type shapes for requests (loose to exactly match your runtime checks)
 type CreateTaskBody = {

@@ -1,12 +1,11 @@
-import { PrismaClient } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 
 import type { Request, Response } from "express";
+import { prisma } from "../../db";
 
 dotenv.config();
 
-const prisma = new PrismaClient();
 export const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 export const signup = async (req: Request, res: Response) => {
   const { email, password, name, picture } = req.body;

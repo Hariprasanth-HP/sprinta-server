@@ -1,10 +1,9 @@
 // src/controllers/userController.ts
-import { type Prisma, PrismaClient, type User } from "@prisma/client";
+import type { Prisma, User } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import type { NextFunction, Request, Response } from "express";
+import { prisma } from "../db";
 import { err } from "../lib/helper";
-
-const prisma = new PrismaClient();
 
 /** Request body types */
 interface CreateUserBody {

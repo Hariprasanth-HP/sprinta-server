@@ -1,8 +1,7 @@
-import { type Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
+import { prisma } from "../db";
 import { err } from "../lib/helper";
-
-const prisma = new PrismaClient();
 
 /**
  * POST /ActivitiesgetActivitiesTree
