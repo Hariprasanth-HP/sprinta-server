@@ -148,41 +148,66 @@ export const updatePassword = async (newPassword: string) => {
   } else {
     console.log("Password updated successfully");
   }
-};
-export const supabaseGoogleAuth = async (req: Request, res: Response) => {
-  const { email, name, picture, supabaseId } = req.body;
-  console.log("reqbodyy", req.body);
-  if (!email) {
-    return res.status(400).json({ error: "Email required" });
-  }
+}; export const supabaseGoogleAuth = async (req: Request, res: Response) => {
+  try {
+    const { email, name, picture, supabaseId } = req.body;
 
-  let user = await prisma.user.findUnique({
-    where: { email },
-  });
+    console.log("reqbodyy", req.body);
 
-  if (user) {
-    if (user.provider === "LOCAL") {
-      user = await prisma.user.update({
-        where: { email },
-        data: {
-          googleId: supabaseId,
-          provider: "GOOGLE",
-          picture: picture ?? user.picture,
-        },
+    if (!email) {
+      return res.status(400).json({
+        data: null,
+        error: "Email required",
       });
     }
 
-    return res.json(user);
-  }
-  user = await prisma.user.create({
-    data: {
-      email,
-      name: name ?? "User",
-      picture,
-      id: supabaseId,
-      provider: "GOOGLE",
-    },
-  });
+    let user = await prisma.user.findUnique({
+      where: { email },
+    });
 
-  return res.json({ data: user, error: undefined });
+    // Existing user
+    if (user) {
+      // Convert LOCAL account to GOOGLE
+      if (user.provider === "LOCAL") {
+        user = await prisma.user.update({
+          where: { email },
+          data: {
+            googleId: supabaseId,
+            provider: "GOOGLE",
+            picture: picture ?? user.picture,
+          },
+        });
+      }
+
+      return res.status(200).json({
+        data: user,
+        error: null,
+      });
+    }
+
+    // New user
+    user = await prisma.user.create({
+      data: {
+        id: supabaseId,
+        email,
+        name: name ?? "User",
+        picture,
+        provider: "GOOGLE",
+        googleId: supabaseId,
+      },
+    });
+
+    return res.status(201).json({
+      data: user,
+      error: null,
+    });
+  } catch (error: any) {
+    console.error("Google Auth Error:", error);
+
+    return res.status(500).json({
+      data: null,
+      error:
+        error?.message || "Something went wrong during Google authentication",
+    });
+  }
 };
