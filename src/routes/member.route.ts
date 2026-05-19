@@ -24,6 +24,6 @@ router.post("/:teamId", createMembers);
 router.get("/", getMembers);
 router.get("/:id", getMember);
 
-router.put("/:id", updateMember);
+router.patch("/:id", updateMember);
 router.delete("/:id", deleteMember);
 export default router;

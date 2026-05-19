@@ -30,7 +30,6 @@ export interface User {
   tasksAssignedBy?: Task[]; // tasks this user assigned
   tasksAssignedTo?: Task[]; // tasks assigned to this user
   createdTeams?: Team[]; // teams user created
-  refreshTokens?: RefreshToken[];
   projects?: Project[];
   createdMembers?: TeamMember[]; // team members added by this user
   activities?: Activity[];
@@ -44,45 +43,35 @@ export interface Team {
   name: string;
   about: string;
   createdAt: ISODateString;
-  creatorId: number;
+  creatorId: string;
 
   // Relations
   creator?: User;
   members?: TeamMember[];
   projects?: Project[];
 }
-
+export enum TeamRole {
+  OWNER = "OWNER",
+  ADMIN = "ADMIN",
+  MEMBER = "MEMBER",
+}
 /* ---------------------------
    TeamMember
    --------------------------- */
 export interface TeamMember {
   id: number;
   teamId: number;
-  userId: number | null; // optional until signup
+  userId: string | null; // optional until signup
   email: string;
   name: string | null;
-  role: string;
+  role: TeamRole;
   addedAt: ISODateString;
-  addedById: number | null;
+  addedById: string | null;
 
   // Relations
   team?: Team;
   user?: User | null;
   addedBy?: User | null;
-}
-
-/* ---------------------------
-   RefreshToken
-   --------------------------- */
-export interface RefreshToken {
-  id: number;
-  tokenHash: string;
-  userId: number;
-  createdAt: ISODateString;
-  expiresAt: ISODateString;
-
-  // Relations
-  user?: User;
 }
 
 /* ---------------------------

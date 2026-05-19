@@ -2,6 +2,7 @@
 import type { Request, Response } from "express";
 import { prisma } from "../db";
 import { err } from "../lib/helper";
+import { TeamRole } from "../types/type";
 
 /**
  * CREATE Team
@@ -96,28 +97,72 @@ const createTeam = async (req: Request, res: Response) => {
  */
 async function getTeamsFromUser(req: Request, res: Response) {
   try {
-    const user = req.body.user;
-    console.log("user111111", user);
+    const user = req.user;
+    console.log('useruseruser1', user);
 
-    if (!user?.email) {
-      return err(res, 400, "User (with email) is required.");
+    if (!user?.id) {
+      return err(res, 400, "Authenticated user required.");
     }
 
     const teams = await prisma.team.findMany({
       where: {
         members: {
           some: {
-            OR: [{ email: user.email.toLowerCase().trim() }, { userId: user.id }],
+            email: user.email,
           },
         },
       },
-      include: { members: true, projects: true },
-      orderBy: { createdAt: "desc" },
+
+      include: {
+        members: true,
+      },
+
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
-    return res.status(200).json({ success: true, data: teams });
+    const teamsWithProjects = await Promise.all(
+      teams.map(async (team) => {
+
+        const membership = team.members.find(
+          (m) => m.userId === user.id
+        );
+
+        const isAdmin =
+          membership?.role === "OWNER" ||
+          membership?.role === "ADMIN";
+
+        const projects = await prisma.project.findMany({
+          where: isAdmin
+            ? {
+              teamId: team.id,
+            }
+            : {
+              teamId: team.id,
+              members: {
+                some: {
+                  userId: user.id,
+                },
+              },
+            },
+        });
+
+        return {
+          ...team,
+          projects,
+        };
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: teamsWithProjects,
+    });
+
   } catch (e) {
     console.error("getTeamsFromUser error:", e);
+
     return err(res, 500, "Failed to fetch teams.");
   }
 }
@@ -143,7 +188,7 @@ const addUsersToTeam = async (req: Request, res: Response) => {
         teamUpdateData.creatorId = null;
       } else {
         const parsed = bodyCreatorId;
-        if (Number.isNaN(parsed)) return err(res, 400, "creatorId must be a number or null");
+        if (!parsed.trim()) return err(res, 400, "creatorId is required");
         const user = await prisma.user.findUnique({ where: { id: parsed } });
         if (!user) return err(res, 400, "Creator user not found.");
         teamUpdateData.creatorId = parsed;
@@ -169,7 +214,7 @@ const addUsersToTeam = async (req: Request, res: Response) => {
           email: m.email.toLowerCase().trim(),
           name: m.name ?? null,
           userId: m.userId ?? null,
-          role: m.role ?? "MEMBER",
+          role: m.role ?? TeamRole.MEMBER,
         };
       });
 
@@ -265,25 +310,90 @@ const getTeams = async (req: Request, res: Response) => {
 /**
  * GET single Team by id
  */
-const getTeam = async (req: Request, res: Response) => {
+const getTeam = async (
+  req: Request,
+  res: Response
+) => {
   try {
-    const id = parseInt(String(req.params.id), 10);
-    if (Number.isNaN(id)) return err(res, 400, "Invalid Team id.");
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-      include: { members: true, projects: true },
+    const currentUser = req.user;
+
+    if (!currentUser?.id) {
+      return err(res, 401, "Unauthorized.");
+    }
+
+    const id = parseInt(
+      String(req.params.id),
+      10
+    );
+
+    if (Number.isNaN(id)) {
+      return err(
+        res,
+        400,
+        "Invalid Team id."
+      );
+    }
+
+    const team =
+      await prisma.team.findUnique({
+        where: {
+          id,
+        },
+
+        include: {
+          members: true,
+        },
+      });
+
+    if (!team) {
+      return err(
+        res,
+        404,
+        "Team not found."
+      );
+    }
+
+    // Verify user belongs to workspace
+    const membership =
+      team.members.find(
+        (m) =>
+          m.userId === currentUser.id
+      );
+
+    if (!membership) {
+      return err(
+        res,
+        403,
+        "Access denied."
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+
+      data: {
+        ...team,
+
+        currentRole:
+          membership.role,
+      },
     });
 
-    if (!team) return err(res, 404, "Team not found.");
-
-    return res.status(200).json({ success: true, data: team });
   } catch (e) {
-    console.error("getTeam error:", e);
-    return err(res, 500, "Failed to fetch Team.");
+
+    console.error(
+      "getTeam error:",
+      e
+    );
+
+    return err(
+      res,
+      500,
+      "Failed to fetch Team."
+    );
   }
 };
-
 /**
  * UPDATE Team (name, about, creatorId)
  */

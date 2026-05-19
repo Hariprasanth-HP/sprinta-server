@@ -71,28 +71,94 @@ const createProject = async (req: Request, res: Response) => {
 };
 
 // GET all projects
-const getProjects = async (req: Request, res: Response) => {
+
+const getProjects = async (
+  req: Request,
+  res: Response
+) => {
   try {
-    const { teamId } = req.query;
-    const where: Prisma.ProjectWhereInput = {};
-
-    if (teamId) {
-      const id = parseInt(teamId as string, 10);
-      if (Number.isNaN(id)) return err(res, 400, "teamId must be a number");
-      where.teamId = id;
-    } else {
-      return err(res, 500, "teamId should be sent");
+    const user = req.user;
+    if (!user) {
+      return err(res, 401, "Unauthorized");
     }
+    const { teamId } = req.query;
+    if (!teamId) {
+      return err(res, 400, "teamId is required");
+    }
+    const parsedTeamId = parseInt(
+      teamId as string,
+      10
+    );
+    if (Number.isNaN(parsedTeamId)) {
+      return err(
+        res,
+        400,
+        "teamId must be a number"
+      );
+    }
+    // Check workspace membership
+    const membership =
+      await prisma.teamMember.findFirst({
+        where: {
+          teamId: parsedTeamId,
+          userId: user.id as any,
+        },
+      });
 
-    const projects = await prisma.project.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
+    if (!membership) {
+      return err(
+        res,
+        403,
+        "Access denied"
+      );
+    }
+    // Workspace admins can access all projects
+    const isAdmin =
+      membership.role === "OWNER" ||
+      membership.role === "ADMIN";
+
+    const where: Prisma.ProjectWhereInput =
+      isAdmin
+        ? {
+          teamId: parsedTeamId,
+        }
+        : {
+          teamId: parsedTeamId,
+
+          members: {
+            some: {
+              userId: user.id as string | Prisma.UuidFilter<"ProjectMember"> | undefined,
+            },
+          },
+        };
+
+    const projects =
+      await prisma.project.findMany({
+        where,
+
+        orderBy: {
+          createdAt: "desc",
+        },
+
+        include: {
+          members: true,
+        },
+      });
+
+    return res.status(200).json({
+      success: true,
+      data: projects,
     });
 
-    return res.status(200).json({ success: true, data: projects });
   } catch (e) {
+
     console.error("getProjects error:", e);
-    return err(res, 500, "Failed to fetch projects.");
+
+    return err(
+      res,
+      500,
+      "Failed to fetch projects."
+    );
   }
 };
 

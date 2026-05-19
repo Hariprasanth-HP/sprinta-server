@@ -38,9 +38,9 @@ model User {
 
   createdTeams Team[] @relation("CreatedTeams")
 
-  refreshTokens RefreshToken[]
-
   projects Project[]
+
+  projectMembers ProjectMember[]
 
   createdMembers TeamMember[] @relation("AddedById")
 
@@ -50,6 +50,18 @@ model User {
 enum AuthProvider {
   LOCAL
   GOOGLE
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ProjectRole {
+  MANAGER
+  EDITOR
+  VIEWER
 }
 
 model Team {
@@ -76,24 +88,13 @@ model TeamMember {
   // You directly store what admin enters
   email String // required
   name  String?
-  role  String // e.g. "member", "admin", later you can make enum
+  role TeamRole @default(MEMBER)
 
   addedAt   DateTime @default(now())
   addedById String?  @db.Uuid
   addedBy   User?    @relation("AddedById", fields: [addedById], references: [id])
 
   @@unique([teamId, email], name: "uniq_team_email")
-}
-
-model RefreshToken {
-  id        Int      @id @default(autoincrement())
-  tokenHash String
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-
-  @@index([userId])
 }
 
 model Project {
@@ -113,7 +114,26 @@ model Project {
 
   lists List[]
 
+  members ProjectMember[]
+
   @@index([creatorId])
+}
+
+model ProjectMember {
+  id Int @id @default(autoincrement())
+
+  projectId Int
+  userId    String @db.Uuid
+
+  role ProjectRole @default(VIEWER)
+
+  addedAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId],references: [id],onDelete: Cascade)
+
+  user User @relation(fields: [userId],references: [id])
+
+  @@unique([projectId, userId], name: "uniq_project_user")
 }
 
 model List {
