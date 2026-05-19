@@ -5,6 +5,7 @@ import upload from "../middleware/upload";
 
 const router = express.Router();
 
-router.post("/multiple", upload.array("files"), uploadMedia);
+router.post("/multiple", upload.array("files", 5), uploadMedia);
+router.post("/single", upload.single("file"), uploadMedia);
 
 export default router;

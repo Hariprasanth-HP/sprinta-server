@@ -1,11 +1,7 @@
-import type { Request } from "express";
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 
 import cloudinary from "../cloudinary_config";
-
-const IMAGE_MAX_SIZE = 5 * 1024 * 1024; // 5MB
-const VIDEO_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 const storage = new CloudinaryStorage({
   cloudinary,
@@ -16,36 +12,18 @@ const storage = new CloudinaryStorage({
   }),
 });
 
-/**
- * Custom file filter to validate type & size
- */
-const fileFilter: multer.Options["fileFilter"] = (
-  req: Request,
-  file: Express.Multer.File,
-  cb: multer.FileFilterCallback,
-) => {
-  if (file.mimetype.startsWith("image")) {
-    // image size check
-    if (Number(req.headers["content-length"]) > IMAGE_MAX_SIZE) {
-      return cb(new Error("Image size exceeds 5MB limit"));
-    }
-    return cb(null, true);
-  }
-
-  if (file.mimetype.startsWith("video")) {
-    // video size check
-    if (Number(req.headers["content-length"]) > VIDEO_MAX_SIZE) {
-      return cb(new Error("Video size exceeds 10MB limit"));
-    }
-    return cb(null, true);
-  }
-
-  cb(new Error("Only image and video files are allowed"));
-};
-
 const upload = multer({
   storage,
-  fileFilter,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB per file
+    files: 5,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image") || file.mimetype.startsWith("video")) {
+      return cb(null, true);
+    }
+    cb(new Error("Only image and video files are allowed"));
+  },
 });
 
 export default upload;
