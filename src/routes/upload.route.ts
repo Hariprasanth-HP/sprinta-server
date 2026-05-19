@@ -1,13 +1,15 @@
 import express from "express";
 import { MulterError } from "multer";
 
-import { uploadMedia } from "../controllers/upload.controller";
+import { deleteAsset, getTaskAssets, uploadMedia } from "../controllers/upload.controller";
 import upload from "../middleware/upload";
 
 const router = express.Router();
 
 router.post("/multiple", upload.array("files", 5), uploadMedia);
 router.post("/single", upload.single("file"), uploadMedia);
+router.get("/task/:taskId", getTaskAssets);
+router.delete("/:id", deleteAsset);
 
 router.use(
   (err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

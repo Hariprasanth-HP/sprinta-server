@@ -1,12 +1,10 @@
 import { AssetType } from "@prisma/client";
 import type { Request, Response } from "express";
 import { prisma } from "../db";
+import cloudinary from "../cloudinary_config";
 
 /**
  * Upload images / videos to Cloudinary
- * Accepts:
- * - single file: upload.single("file")
- * - multiple files: upload.array("files", 5)
  */
 export const uploadMedia = async (req: Request, res: Response) => {
   try {
@@ -65,6 +63,60 @@ export const uploadMedia = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: error instanceof Error ? error.message : "Media upload failed",
+    });
+  }
+};
+
+/**
+ * Get all assets for a task
+ */
+export const getTaskAssets = async (req: Request, res: Response) => {
+  try {
+    const taskId = Number(req.params.taskId);
+
+    if (!taskId) {
+      return res.status(400).json({ success: false, message: "taskId is required" });
+    }
+
+    const assets = await prisma.asset.findMany({
+      where: { taskId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json({ success: true, data: assets });
+  } catch (error: unknown) {
+    return res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to fetch assets",
+    });
+  }
+};
+
+/**
+ * Delete an asset (from Cloudinary + database)
+ */
+export const deleteAsset = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: "Invalid asset id" });
+
+    const asset = await prisma.asset.findUnique({ where: { id } });
+    if (!asset) return res.status(404).json({ success: false, message: "Asset not found" });
+
+    // Delete from Cloudinary
+    try {
+      await cloudinary.uploader.destroy(asset.publicId);
+    } catch {
+      // Proceed even if Cloudinary delete fails
+    }
+
+    await prisma.asset.delete({ where: { id } });
+
+    return res.status(200).json({ success: true, message: "Asset deleted" });
+  } catch (error: unknown) {
+    return res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to delete asset",
     });
   }
 };
