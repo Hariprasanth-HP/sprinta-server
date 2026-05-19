@@ -98,7 +98,7 @@ const createTeam = async (req: Request, res: Response) => {
 async function getTeamsFromUser(req: Request, res: Response) {
   try {
     const user = req.user;
-    console.log('useruseruser1', user);
+    console.log("useruseruser1", user);
 
     if (!user?.id) {
       return err(res, 400, "Authenticated user required.");
@@ -124,42 +124,36 @@ async function getTeamsFromUser(req: Request, res: Response) {
 
     const teamsWithProjects = await Promise.all(
       teams.map(async (team) => {
+        const membership = team.members.find((m) => m.userId === user.id);
 
-        const membership = team.members.find(
-          (m) => m.userId === user.id
-        );
-
-        const isAdmin =
-          membership?.role === "OWNER" ||
-          membership?.role === "ADMIN";
+        const isAdmin = membership?.role === "OWNER" || membership?.role === "ADMIN";
 
         const projects = await prisma.project.findMany({
           where: isAdmin
             ? {
-              teamId: team.id,
-            }
+                teamId: team.id,
+              }
             : {
-              teamId: team.id,
-              members: {
-                some: {
-                  userId: user.id,
+                teamId: team.id,
+                members: {
+                  some: {
+                    userId: user.id,
+                  },
                 },
               },
-            },
         });
 
         return {
           ...team,
           projects,
         };
-      })
+      }),
     );
 
     return res.status(200).json({
       success: true,
       data: teamsWithProjects,
     });
-
   } catch (e) {
     console.error("getTeamsFromUser error:", e);
 
@@ -310,63 +304,39 @@ const getTeams = async (req: Request, res: Response) => {
 /**
  * GET single Team by id
  */
-const getTeam = async (
-  req: Request,
-  res: Response
-) => {
+const getTeam = async (req: Request, res: Response) => {
   try {
-
     const currentUser = req.user;
 
     if (!currentUser?.id) {
       return err(res, 401, "Unauthorized.");
     }
 
-    const id = parseInt(
-      String(req.params.id),
-      10
-    );
+    const id = parseInt(String(req.params.id), 10);
 
     if (Number.isNaN(id)) {
-      return err(
-        res,
-        400,
-        "Invalid Team id."
-      );
+      return err(res, 400, "Invalid Team id.");
     }
 
-    const team =
-      await prisma.team.findUnique({
-        where: {
-          id,
-        },
+    const team = await prisma.team.findUnique({
+      where: {
+        id,
+      },
 
-        include: {
-          members: true,
-        },
-      });
+      include: {
+        members: true,
+      },
+    });
 
     if (!team) {
-      return err(
-        res,
-        404,
-        "Team not found."
-      );
+      return err(res, 404, "Team not found.");
     }
 
     // Verify user belongs to workspace
-    const membership =
-      team.members.find(
-        (m) =>
-          m.userId === currentUser.id
-      );
+    const membership = team.members.find((m) => m.userId === currentUser.id);
 
     if (!membership) {
-      return err(
-        res,
-        403,
-        "Access denied."
-      );
+      return err(res, 403, "Access denied.");
     }
 
     return res.status(200).json({
@@ -375,23 +345,13 @@ const getTeam = async (
       data: {
         ...team,
 
-        currentRole:
-          membership.role,
+        currentRole: membership.role,
       },
     });
-
   } catch (e) {
+    console.error("getTeam error:", e);
 
-    console.error(
-      "getTeam error:",
-      e
-    );
-
-    return err(
-      res,
-      500,
-      "Failed to fetch Team."
-    );
+    return err(res, 500, "Failed to fetch Team.");
   }
 };
 /**

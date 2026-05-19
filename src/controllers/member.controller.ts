@@ -35,11 +35,7 @@ const createMembers = async (req: Request, res: Response) => {
     const MAX_BULK = 10;
 
     if (members.length > MAX_BULK) {
-      return err(
-        res,
-        400,
-        `Too many members at once (max ${MAX_BULK}).`
-      );
+      return err(res, 400, `Too many members at once (max ${MAX_BULK}).`);
     }
 
     // Ensure team exists
@@ -52,28 +48,21 @@ const createMembers = async (req: Request, res: Response) => {
     }
 
     // Check current user's workspace role
-    const currentMembership =
-      await prisma.teamMember.findFirst({
-        where: {
-          teamId,
-          userId: currentUser.id,
-        },
-      });
+    const currentMembership = await prisma.teamMember.findFirst({
+      where: {
+        teamId,
+        userId: currentUser.id,
+      },
+    });
 
     if (!currentMembership) {
       return err(res, 403, "Not a team member.");
     }
 
-    const isAdmin =
-      currentMembership.role === "OWNER" ||
-      currentMembership.role === "ADMIN";
+    const isAdmin = currentMembership.role === "OWNER" || currentMembership.role === "ADMIN";
 
     if (!isAdmin) {
-      return err(
-        res,
-        403,
-        "Only admins can add members."
-      );
+      return err(res, 403, "Only admins can add members.");
     }
 
     // Validate + normalize
@@ -93,9 +82,7 @@ const createMembers = async (req: Request, res: Response) => {
           };
         }
 
-        const email = m.email
-          .trim()
-          .toLowerCase();
+        const email = m.email.trim().toLowerCase();
 
         if (!/^\S+@\S+\.\S+$/.test(email)) {
           throw {
@@ -105,25 +92,22 @@ const createMembers = async (req: Request, res: Response) => {
         }
 
         // Check if user already exists
-        const existingUser =
-          await prisma.user.findUnique({
-            where: {
-              email,
-            },
-          });
+        const existingUser = await prisma.user.findUnique({
+          where: {
+            email,
+          },
+        });
 
         return {
           email,
 
-          name: m.name
-            ? String(m.name).trim()
-            : null,
+          name: m.name ? String(m.name).trim() : null,
 
           role: m.role ?? "MEMBER",
 
           userId: existingUser?.id ?? null,
         };
-      })
+      }),
     );
 
     // Upsert members
@@ -158,11 +142,11 @@ const createMembers = async (req: Request, res: Response) => {
           // attach user if they now exist
           ...(m.userId
             ? {
-              userId: m.userId,
-            }
+                userId: m.userId,
+              }
             : {}),
         },
-      })
+      }),
     );
 
     await prisma.$transaction(upsertPromises);
@@ -183,9 +167,7 @@ const createMembers = async (req: Request, res: Response) => {
       data: updatedTeam,
       added: normalizedMembers.length,
     });
-
   } catch (e: any) {
-
     if (e?.status && e.message) {
       return err(res, e.status, e.message);
     }
@@ -196,11 +178,7 @@ const createMembers = async (req: Request, res: Response) => {
 
     console.error("createMembers error:", e);
 
-    return err(
-      res,
-      500,
-      "Failed to add team members."
-    );
+    return err(res, 500, "Failed to add team members.");
   }
 };
 
@@ -252,12 +230,8 @@ const getMember = async (req: Request, res: Response) => {
 };
 
 // UPDATE member
-const updateMember = async (
-  req: Request,
-  res: Response
-) => {
+const updateMember = async (req: Request, res: Response) => {
   try {
-
     const currentUser = req.user;
 
     if (!currentUser?.id) {
@@ -270,63 +244,41 @@ const updateMember = async (
       return err(res, 400, "Invalid member id.");
     }
 
-    const {
-      name,
-      about,
-      teamId,
-      role,
-    } = req.body;
+    const { name, about, teamId, role } = req.body;
 
     // Ensure member exists
-    const existing =
-      await prisma.teamMember.findUnique({
-        where: { id },
-      });
+    const existing = await prisma.teamMember.findUnique({
+      where: { id },
+    });
 
     if (!existing) {
       return err(res, 404, "Member not found.");
     }
 
     // SAME FLOW using existing.teamId
-    const currentMembership =
-      await prisma.teamMember.findFirst({
-        where: {
-          teamId: existing.teamId,
-          userId: currentUser.id,
-        },
-      });
+    const currentMembership = await prisma.teamMember.findFirst({
+      where: {
+        teamId: existing.teamId,
+        userId: currentUser.id,
+      },
+    });
 
     if (!currentMembership) {
       return err(res, 403, "Access denied.");
     }
 
-    const isAdmin =
-      currentMembership.role === "OWNER" ||
-      currentMembership.role === "ADMIN";
+    const isAdmin = currentMembership.role === "OWNER" || currentMembership.role === "ADMIN";
 
     if (!isAdmin) {
-      return err(
-        res,
-        403,
-        "Only admins can update members."
-      );
+      return err(res, 403, "Only admins can update members.");
     }
 
     const data: any = {};
 
     // Validate name
     if (name !== undefined) {
-
-      if (
-        !name ||
-        typeof name !== "string" ||
-        name.trim().length === 0
-      ) {
-        return err(
-          res,
-          400,
-          "If provided, name must be a non-empty string."
-        );
+      if (!name || typeof name !== "string" || name.trim().length === 0) {
+        return err(res, 400, "If provided, name must be a non-empty string.");
       }
 
       data.name = name.trim();
@@ -334,50 +286,24 @@ const updateMember = async (
 
     // Validate about
     if (about !== undefined) {
-
       if (about && about.length > 255) {
-        return err(
-          res,
-          400,
-          "About must be at most 255 characters."
-        );
+        return err(res, 400, "About must be at most 255 characters.");
       }
 
-      data.about =
-        about === null
-          ? null
-          : about;
+      data.about = about === null ? null : about;
     }
 
     // Validate role
     if (role !== undefined) {
+      const allowedRoles = Object.values(TeamRole);
 
-      const allowedRoles =
-        Object.values(TeamRole);
-
-      if (
-        !allowedRoles.includes(
-          role as TeamRole
-        )
-      ) {
-        return err(
-          res,
-          400,
-          "Invalid role. Allowed: " +
-          allowedRoles.join(", ")
-        );
+      if (!allowedRoles.includes(role as TeamRole)) {
+        return err(res, 400, "Invalid role. Allowed: " + allowedRoles.join(", "));
       }
 
       // Only OWNER can modify OWNER
-      if (
-        existing.role === "OWNER" &&
-        currentMembership.role !== "OWNER"
-      ) {
-        return err(
-          res,
-          403,
-          "Only owner can modify owner role."
-        );
+      if (existing.role === "OWNER" && currentMembership.role !== "OWNER") {
+        return err(res, 403, "Only owner can modify owner role.");
       }
 
       data.role = role as TeamRole;
@@ -385,84 +311,60 @@ const updateMember = async (
 
     // Optional team change
     if (teamId !== undefined) {
-
       const parsed = parseInt(teamId, 10);
 
       if (Number.isNaN(parsed)) {
-        return err(
-          res,
-          400,
-          "teamId must be a number"
-        );
+        return err(res, 400, "teamId must be a number");
       }
 
-      const team =
-        await prisma.team.findUnique({
-          where: {
-            id: parsed,
-          },
-        });
+      const team = await prisma.team.findUnique({
+        where: {
+          id: parsed,
+        },
+      });
 
       if (!team) {
-        return err(
-          res,
-          400,
-          "Team not found."
-        );
+        return err(res, 400, "Team not found.");
       }
 
       data.teamId = parsed;
     }
 
-    const updated =
-      await prisma.teamMember.update({
-        where: {
-          id,
-        },
+    const updated = await prisma.teamMember.update({
+      where: {
+        id,
+      },
 
-        data,
+      data,
 
-        include: {
-          team: true,
-        },
-      });
+      include: {
+        team: true,
+      },
+    });
 
     return res.status(200).json({
       success: true,
       data: updated,
     });
-
   } catch (e: unknown) {
-
     if (
       isPrismaKnownError(e) &&
       e.code === "P2002" &&
       Array.isArray(e.meta?.target) &&
       e.meta.target.includes("name")
     ) {
-      return err(
-        res,
-        409,
-        "Member name already exists."
-      );
+      return err(res, 409, "Member name already exists.");
     }
 
     console.error("updateMember error:", e);
 
-    return err(
-      res,
-      500,
-      "Failed to update member."
-    );
+    return err(res, 500, "Failed to update member.");
   }
 };
 
 // DELETE member
 // Default safety: disallow deleting if projects exist. If you prefer cascade, adjust logic.
-const deleteMember = async (
-  req: Request,
-  res: Response
-) => {
+const deleteMember = async (req: Request, res: Response) => {
   try {
     const currentUser = req.user;
     if (!currentUser?.id) {
@@ -473,64 +375,46 @@ const deleteMember = async (
       return err(res, 400, "Invalid member id.");
     }
     // Target member
-    const member =
-      await prisma.teamMember.findUnique({
-        where: {
-          id,
-        },
+    const member = await prisma.teamMember.findUnique({
+      where: {
+        id,
+      },
 
-        include: {
-          team: true,
-        },
-      });
+      include: {
+        team: true,
+      },
+    });
 
     if (!member) {
       return err(res, 404, "Member not found.");
     }
     // Current user's membership
-    const currentMembership =
-      await prisma.teamMember.findFirst({
-        where: {
-          teamId: member.teamId,
-          userId: currentUser.id,
-        },
-      });
+    const currentMembership = await prisma.teamMember.findFirst({
+      where: {
+        teamId: member.teamId,
+        userId: currentUser.id,
+      },
+    });
 
     if (!currentMembership) {
       return err(res, 403, "Access denied.");
     }
 
     const isAdmin =
-      currentMembership.role === TeamRole.OWNER ||
-      currentMembership.role === TeamRole.ADMIN;
+      currentMembership.role === TeamRole.OWNER || currentMembership.role === TeamRole.ADMIN;
 
     if (!isAdmin) {
-      return err(
-        res,
-        403,
-        "Only admins can delete members."
-      );
+      return err(res, 403, "Only admins can delete members.");
     }
 
     // ADMIN cannot remove OWNER
-    if (
-      member.role === TeamRole.OWNER &&
-      currentMembership.role !== TeamRole.OWNER
-    ) {
-      return err(
-        res,
-        403,
-        "Only owner can remove owner."
-      );
+    if (member.role === TeamRole.OWNER && currentMembership.role !== TeamRole.OWNER) {
+      return err(res, 403, "Only owner can remove owner.");
     }
 
     // Prevent deleting yourself
     if (member.userId === currentUser.id) {
-      return err(
-        res,
-        400,
-        "You cannot remove yourself."
-      );
+      return err(res, 400, "You cannot remove yourself.");
     }
 
     if (member.userId) {
@@ -554,20 +438,11 @@ const deleteMember = async (
       success: true,
       data: `member ${id} deleted`,
     });
-
   } catch (e: any) {
     if (e.code === "P2003") {
-      return err(
-        res,
-        409,
-        "Member has dependent records and cannot be deleted."
-      );
+      return err(res, 409, "Member has dependent records and cannot be deleted.");
     }
-    return err(
-      res,
-      500,
-      "Failed to delete member."
-    );
+    return err(res, 500, "Failed to delete member.");
   }
 };
 

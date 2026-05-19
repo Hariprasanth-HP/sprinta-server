@@ -19,43 +19,43 @@ export const uploadMedia = async (req: Request, res: Response) => {
       });
     }
 
-  // ✅ Multiple uploads
-  if (Array.isArray(req.files) && req.files.length > 0) {
-    const assetsData = req.files.map((file: Express.Multer.File) => ({
-      url: file.path,
-      publicId: file.filename,
-      type: file.mimetype.startsWith("video") ? AssetType.VIDEO : AssetType.IMAGE,
-      taskId,
-    }));
-
-    await prisma.asset.createMany({
-      data: assetsData,
-    });
-
-    return res.status(200).json({
-      success: true,
-      count: assetsData.length,
-      data: assetsData,
-    });
-  }
-
-  // ✅ Single upload
-  if (req.file) {
-    const asset = await prisma.asset.create({
-      data: {
-        url: req.file.path,
-        publicId: req.file.filename,
-        type: req.file.mimetype.startsWith("video") ? AssetType.VIDEO : AssetType.IMAGE,
+    // ✅ Multiple uploads
+    if (Array.isArray(req.files) && req.files.length > 0) {
+      const assetsData = req.files.map((file: Express.Multer.File) => ({
+        url: file.path,
+        publicId: file.filename,
+        type: file.mimetype.startsWith("video") ? AssetType.VIDEO : AssetType.IMAGE,
         taskId,
-      },
-    });
+      }));
 
-    return res.status(200).json({
-      success: true,
-      count: 1,
-      data: [asset],
-    });
-  }
+      await prisma.asset.createMany({
+        data: assetsData,
+      });
+
+      return res.status(200).json({
+        success: true,
+        count: assetsData.length,
+        data: assetsData,
+      });
+    }
+
+    // ✅ Single upload
+    if (req.file) {
+      const asset = await prisma.asset.create({
+        data: {
+          url: req.file.path,
+          publicId: req.file.filename,
+          type: req.file.mimetype.startsWith("video") ? AssetType.VIDEO : AssetType.IMAGE,
+          taskId,
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        count: 1,
+        data: [asset],
+      });
+    }
 
     return res.status(400).json({
       success: false,

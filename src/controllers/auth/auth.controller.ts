@@ -7,23 +7,11 @@ import { prisma } from "../../db";
 dotenv.config();
 
 export const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
-export const signup = async (
-  req: Request,
-  res: Response
-) => {
-
-  const {
-    email,
-    password,
-    name,
-    picture,
-  } = req.body;
+export const signup = async (req: Request, res: Response) => {
+  const { email, password, name, picture } = req.body;
 
   // Create Supabase auth user
-  const {
-    data,
-    error,
-  } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
 
@@ -50,15 +38,13 @@ export const signup = async (
   }
 
   // Check existing user by email
-  let user =
-    await prisma.user.findUnique({
-      where: {
-        email: authUser.email!,
-      },
-    });
+  let user = await prisma.user.findUnique({
+    where: {
+      email: authUser.email!,
+    },
+  });
 
   if (user) {
-
     // Update existing invited user
     user = await prisma.user.update({
       where: {
@@ -70,13 +56,10 @@ export const signup = async (
 
         name: name ?? user.name,
 
-        picture:
-          picture ?? user.picture,
+        picture: picture ?? user.picture,
       },
     });
-
   } else {
-
     // Create fresh user
     user = await prisma.user.create({
       data: {
@@ -208,18 +191,9 @@ export const updatePassword = async (newPassword: string) => {
   }
 };
 
-export const supabaseGoogleAuth = async (
-  req: Request,
-  res: Response
-) => {
+export const supabaseGoogleAuth = async (req: Request, res: Response) => {
   try {
-
-    const {
-      email,
-      name,
-      picture,
-      supabaseId,
-    } = req.body;
+    const { email, name, picture, supabaseId } = req.body;
 
     if (!email || !supabaseId) {
       return res.status(400).json({
@@ -228,81 +202,66 @@ export const supabaseGoogleAuth = async (
       });
     }
 
-    const normalizedEmail =
-      email.trim().toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    let user =
-      await prisma.user.findUnique({
-        where: {
-          email: normalizedEmail,
-        },
-      });
+    let user = await prisma.user.findUnique({
+      where: {
+        email: normalizedEmail,
+      },
+    });
 
     // Existing user
     if (user) {
-
       // Convert LOCAL → GOOGLE
       if (user.provider === "LOCAL") {
+        user = await prisma.user.update({
+          where: {
+            email: normalizedEmail,
+          },
 
-        user =
-          await prisma.user.update({
-            where: {
-              email: normalizedEmail,
-            },
-
-            data: {
-              id: supabaseId,
-
-              googleId: supabaseId,
-
-              provider: "GOOGLE",
-
-              picture:
-                picture ?? user.picture,
-
-              name:
-                name ?? user.name,
-            },
-          });
-
-      } else {
-
-        // Refresh profile info
-        user =
-          await prisma.user.update({
-            where: {
-              email: normalizedEmail,
-            },
-
-            data: {
-              picture:
-                picture ?? user.picture,
-
-              name:
-                name ?? user.name,
-            },
-          });
-      }
-
-    } else {
-
-      // New user
-      user =
-        await prisma.user.create({
           data: {
             id: supabaseId,
 
-            email: normalizedEmail,
-
-            name: name ?? "User",
-
-            picture,
+            googleId: supabaseId,
 
             provider: "GOOGLE",
 
-            googleId: supabaseId,
+            picture: picture ?? user.picture,
+
+            name: name ?? user.name,
           },
         });
+      } else {
+        // Refresh profile info
+        user = await prisma.user.update({
+          where: {
+            email: normalizedEmail,
+          },
+
+          data: {
+            picture: picture ?? user.picture,
+
+            name: name ?? user.name,
+          },
+        });
+      }
+    } else {
+      // New user
+      user = await prisma.user.create({
+        data: {
+          id: supabaseId,
+
+          email: normalizedEmail,
+
+          name: name ?? "User",
+
+          picture,
+
+          provider: "GOOGLE",
+
+          googleId: supabaseId,
+        },
+      });
     }
 
     // Attach pending team memberships
@@ -317,26 +276,17 @@ export const supabaseGoogleAuth = async (
       },
     });
 
-    return res.status(
-      user ? 200 : 201
-    ).json({
+    return res.status(user ? 200 : 201).json({
       data: user,
       error: null,
     });
-
   } catch (error: any) {
-
-    console.error(
-      "Google Auth Error:",
-      error
-    );
+    console.error("Google Auth Error:", error);
 
     return res.status(500).json({
       data: null,
 
-      error:
-        error?.message ||
-        "Something went wrong during Google authentication",
+      error: error?.message || "Something went wrong during Google authentication",
     });
   }
 };
