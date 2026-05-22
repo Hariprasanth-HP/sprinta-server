@@ -29,6 +29,7 @@ const allowedOrigins = [
   "http://localhost:5173", // Vite dev
   "http://localhost:3000", // Next.js / CRA
   "https://hariprasanth-hp.github.io",
+  "https://sprinta-rho.vercel.app"
 ];
 
 const swaggerSpec = swaggerJsdoc({
