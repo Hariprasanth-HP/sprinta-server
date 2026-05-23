@@ -214,12 +214,15 @@ model Asset {
   publicId String
   type     AssetType
 
-  taskId Int
-  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId     Int?
+  task       Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  activityId Int?
+  activity   Activity? @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
   @@index([taskId])
+  @@index([activityId])
 }
 
 model TaskStatus {
@@ -267,6 +270,8 @@ model Activity {
   parentId Int?
   parent   Activity?  @relation("ActivityReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies  Activity[] @relation("ActivityReplies")
+
+  assets Asset[]
 
   @@index([taskId])
   @@index([userId])

@@ -5,16 +5,25 @@ import { prisma } from "../db";
 
 /**
  * Upload images / videos to Cloudinary
+ * Query params: ?taskId=xxx OR ?activityId=xxx
  */
 export const uploadMedia = async (req: Request, res: Response) => {
   try {
-    const taskId = Number(req.query.taskId);
+    const taskId = req.query.taskId ? Number(req.query.taskId) : undefined;
+    const activityId = req.query.activityId ? Number(req.query.activityId) : undefined;
 
-    if (!taskId) {
+    if (!taskId && !activityId) {
       return res.status(400).json({
         success: false,
-        message: "taskId is required",
+        message: "taskId or activityId is required",
       });
+    }
+
+    if (taskId && Number.isNaN(taskId)) {
+      return res.status(400).json({ success: false, message: "Invalid taskId" });
+    }
+    if (activityId && Number.isNaN(activityId)) {
+      return res.status(400).json({ success: false, message: "Invalid activityId" });
     }
 
     // ✅ Multiple uploads
@@ -23,17 +32,25 @@ export const uploadMedia = async (req: Request, res: Response) => {
         url: file.path,
         publicId: file.filename,
         type: file.mimetype.startsWith("video") ? AssetType.VIDEO : AssetType.IMAGE,
-        taskId,
+        ...(taskId !== undefined ? { taskId } : {}),
+        ...(activityId !== undefined ? { activityId } : {}),
       }));
+
+      const publicIds = assetsData.map((a) => a.publicId);
 
       await prisma.asset.createMany({
         data: assetsData,
       });
 
+      const created = await prisma.asset.findMany({
+        where: { publicId: { in: publicIds } },
+        orderBy: { id: "asc" },
+      });
+
       return res.status(200).json({
         success: true,
-        count: assetsData.length,
-        data: assetsData,
+        count: created.length,
+        data: created,
       });
     }
 
@@ -44,7 +61,8 @@ export const uploadMedia = async (req: Request, res: Response) => {
           url: req.file.path,
           publicId: req.file.filename,
           type: req.file.mimetype.startsWith("video") ? AssetType.VIDEO : AssetType.IMAGE,
-          taskId,
+          ...(taskId !== undefined ? { taskId } : {}),
+          ...(activityId !== undefined ? { activityId } : {}),
         },
       });
 

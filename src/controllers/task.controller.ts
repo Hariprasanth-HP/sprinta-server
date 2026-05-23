@@ -103,7 +103,7 @@ const createTask = async (
       },
     });
 
-    if (result.assigneeId) {
+    if (result.assigneeId && result.assigneeId !== result.assignedById) {
       const severityMap: Record<string, "LOW" | "NORMAL" | "HIGH" | "URGENT"> = {
         LOW: "LOW",
         MEDIUM: "NORMAL",
@@ -409,7 +409,7 @@ const updateTask = async (
       }),
     ]);
 
-    if (assigneeChanged && incoming.assigneeId) {
+    if (assigneeChanged && incoming.assigneeId && incoming.assigneeId !== actorId) {
       const severityMap: Record<string, "LOW" | "NORMAL" | "HIGH" | "URGENT"> = {
         LOW: "LOW",
         MEDIUM: "NORMAL",

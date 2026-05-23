@@ -21,12 +21,14 @@ export const createActivity = async (req: Request, res: Response): Promise<Respo
       taskId,
       parentId,
       kind = ActivityKind.COMMENT,
+      assetIds,
     } = req.body as {
       description?: unknown;
       userId?: unknown;
       taskId?: unknown;
       parentId?: unknown | null;
       kind?: ActivityKind;
+      assetIds?: number[];
     };
 
     if (!description || typeof description !== "string" || !description.trim()) {
@@ -70,6 +72,13 @@ export const createActivity = async (req: Request, res: Response): Promise<Respo
       },
     });
 
+    if (Array.isArray(assetIds) && assetIds.length > 0) {
+      await prisma.asset.updateMany({
+        where: { id: { in: assetIds } },
+        data: { activityId: created.id },
+      });
+    }
+
     if (data.kind === "COMMENT") {
       const task = await prisma.task.findUnique({
         where: { id: parsedTaskId },
@@ -87,7 +96,15 @@ export const createActivity = async (req: Request, res: Response): Promise<Respo
       }
     }
 
-    return res.status(201).json({ success: true, data: created });
+    const finalActivity = await prisma.activity.findUnique({
+      where: { id: created.id },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        assets: true,
+      },
+    });
+
+    return res.status(201).json({ success: true, data: finalActivity ?? created });
   } catch (e) {
     console.error("createActivity error:", e);
     return err(res, 500, "Failed to create Activity.");
@@ -111,7 +128,7 @@ export const getActivities = async (req: Request, res: Response): Promise<Respon
       where: {
         taskId: parsedTaskId,
       },
-      include: { user: true },
+      include: { user: true, assets: true },
       orderBy: { createdAt: "asc" }, // fetch ascending so build preserves chronological order
     });
 
@@ -168,6 +185,7 @@ export const getActivity = async (req: Request, res: Response): Promise<Response
       where: { id: parsed },
       include: {
         user: { select: { id: true, name: true, email: true } },
+        assets: true,
         replies: {
           include: { user: { select: { id: true, name: true } } },
         },
