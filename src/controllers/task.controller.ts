@@ -2,6 +2,7 @@
 import { ActivityKind, type Priority, Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
 import { prisma } from "../db";
+import { createNotification } from "./notification.controller";
 
 // Type shapes for requests (loose to exactly match your runtime checks)
 type CreateTaskBody = {
@@ -101,6 +102,23 @@ const createTask = async (
         statusId,
       },
     });
+
+    if (result.assigneeId) {
+      const severityMap: Record<string, "LOW" | "NORMAL" | "HIGH" | "URGENT"> = {
+        LOW: "LOW",
+        MEDIUM: "NORMAL",
+        HIGH: "HIGH",
+        CRITICAL: "URGENT",
+      };
+      createNotification({
+        userId: result.assigneeId,
+        type: "TASK_ASSIGNED",
+        severity: severityMap[result.priority] ?? "NORMAL",
+        title: "New task assigned",
+        message: result.name,
+        link: `/tasks/${result.id}`,
+      }).catch(() => {});
+    }
 
     res.status(201).json({ success: true, data: result });
     return;
@@ -341,6 +359,8 @@ const updateTask = async (
       return;
     }
 
+    const assigneeChanged = has("assigneeId") && incoming.assigneeId !== existing.assigneeId;
+
     // Build diffs only for fields that were provided and actually changed
     const diffs: Array<{ field: string; from: unknown; to: unknown }> = [];
 
@@ -388,6 +408,23 @@ const updateTask = async (
         },
       }),
     ]);
+
+    if (assigneeChanged && incoming.assigneeId) {
+      const severityMap: Record<string, "LOW" | "NORMAL" | "HIGH" | "URGENT"> = {
+        LOW: "LOW",
+        MEDIUM: "NORMAL",
+        HIGH: "HIGH",
+        CRITICAL: "URGENT",
+      };
+      createNotification({
+        userId: incoming.assigneeId,
+        type: "TASK_ASSIGNED",
+        severity: severityMap[updatedTask.priority] ?? "NORMAL",
+        title: "Task reassigned",
+        message: updatedTask.name,
+        link: `/tasks/${updatedTask.id}`,
+      }).catch(() => {});
+    }
 
     res.status(200).json({ success: true, data: updatedTask, activity: createdActivity });
     return;

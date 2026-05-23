@@ -13,6 +13,21 @@ export enum Priority {
   CRITICAL = "CRITICAL",
 }
 
+export enum Severity {
+  LOW = "LOW",
+  NORMAL = "NORMAL",
+  HIGH = "HIGH",
+  URGENT = "URGENT",
+}
+
+export enum NotificationType {
+  TASK_ASSIGNED = "TASK_ASSIGNED",
+  TASK_UPDATED = "TASK_UPDATED",
+  COMMENT_ADDED = "COMMENT_ADDED",
+  MENTIONED = "MENTIONED",
+  SYSTEM = "SYSTEM",
+}
+
 /* ---------------------------
    User
    Note: password and refreshTokens are included because they exist
@@ -171,6 +186,20 @@ export interface Activity {
 
   parentId: number | null;
   user?: User;
+}
+
+export interface Notification {
+  id: number;
+  userId: string;
+  type: NotificationType;
+  severity: Severity;
+  title: string;
+  message: string | null;
+  link: string | null;
+  isRead: boolean;
+  metadata: unknown | null;
+  createdAt: ISODateString;
+  readAt: ISODateString | null;
 }
 
 /* ---------------------------

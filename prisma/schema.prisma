@@ -45,6 +45,23 @@ model User {
   createdMembers TeamMember[] @relation("AddedById")
 
   activities Activity[]
+
+  notifications Notification[]
+}
+
+enum Severity {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_UPDATED
+  COMMENT_ADDED
+  MENTIONED
+  SYSTEM
 }
 
 enum AuthProvider {
@@ -254,4 +271,22 @@ model Activity {
   @@index([taskId])
   @@index([userId])
   @@index([kind, createdAt])
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    String           @db.Uuid
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  severity  Severity         @default(NORMAL)
+  title     String           @db.VarChar(200)
+  message   String?          @db.VarChar(500)
+  link      String?
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
 }

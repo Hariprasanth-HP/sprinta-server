@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
 import { prisma } from "../db";
 import { err } from "../lib/helper";
+import { createNotification } from "./notification.controller";
 
 /**
  * POST /ActivitiesgetActivitiesTree
@@ -68,6 +69,23 @@ export const createActivity = async (req: Request, res: Response): Promise<Respo
         user: { select: { id: true, name: true, email: true } },
       },
     });
+
+    if (data.kind === "COMMENT") {
+      const task = await prisma.task.findUnique({
+        where: { id: parsedTaskId },
+        select: { assigneeId: true, name: true },
+      });
+      if (task?.assigneeId && task.assigneeId !== data.userId) {
+        createNotification({
+          userId: task.assigneeId,
+          type: "COMMENT_ADDED",
+          severity: "NORMAL",
+          title: "New comment on task",
+          message: typeof description === "string" ? description.substring(0, 200) : "New comment",
+          link: `/tasks/${parsedTaskId}`,
+        }).catch(() => {});
+      }
+    }
 
     return res.status(201).json({ success: true, data: created });
   } catch (e) {

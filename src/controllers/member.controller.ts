@@ -298,7 +298,7 @@ const updateMember = async (req: Request, res: Response) => {
       const allowedRoles = Object.values(TeamRole);
 
       if (!allowedRoles.includes(role as TeamRole)) {
-        return err(res, 400, "Invalid role. Allowed: " + allowedRoles.join(", "));
+        return err(res, 400, `Invalid role. Allowed: ${allowedRoles.join(", ")}`);
       }
 
       // Only OWNER can modify OWNER

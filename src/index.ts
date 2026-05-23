@@ -1,5 +1,6 @@
 // src/index.ts
 
+import http from "node:http";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
@@ -8,28 +9,31 @@ import swaggerUi from "swagger-ui-express";
 import { prisma } from "./db";
 import { requireAuth } from "./middleware/authMiddleware";
 import ActivityRouter from "./routes/activity.route";
-// import your routers / middleware (update paths as needed)
 import AuthRouter from "./routes/auth/auth.route";
 import GenerateController from "./routes/generate.route";
 import ListRouter from "./routes/list.route";
 import MemberRouter from "./routes/member.route";
+import NotificationRouter from "./routes/notification.route";
 import ProjectRouter from "./routes/project.route";
 import StatusController from "./routes/status.route";
 import TaskRouter from "./routes/task.route";
 import TeamRouter from "./routes/team.route";
 import UploadRouter from "./routes/upload.route";
 import UserRouter from "./routes/user.route";
+import { initSocket } from "./socket";
 
 dotenv.config();
 
 const app = express();
+const httpServer = http.createServer(app);
+initSocket(httpServer);
 const PORT = Number(process.env.PORT ?? 4000);
 // ✅ CORS CONFIG
 const allowedOrigins = [
   "http://localhost:5173", // Vite dev
   "http://localhost:3000", // Next.js / CRA
   "https://hariprasanth-hp.github.io",
-  "https://sprinta-rho.vercel.app"
+  "https://sprinta-rho.vercel.app",
 ];
 
 const swaggerSpec = swaggerJsdoc({
@@ -98,11 +102,12 @@ async function main(): Promise<void> {
   app.use("/api/status", requireAuth, StatusController);
   app.use("/api/generate", requireAuth, GenerateController);
   app.use("/api/upload", requireAuth, UploadRouter);
+  app.use("/api/notifications", requireAuth, NotificationRouter);
 
   // Connect Prisma then start server
   try {
     await prisma.$connect();
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
   } catch (err) {

@@ -1,7 +1,7 @@
 import { AssetType } from "@prisma/client";
 import type { Request, Response } from "express";
-import { prisma } from "../db";
 import cloudinary from "../cloudinary_config";
+import { prisma } from "../db";
 
 /**
  * Upload images / videos to Cloudinary
