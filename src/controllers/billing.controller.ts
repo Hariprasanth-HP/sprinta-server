@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import { prisma } from "../db";
-import { getJSON, invalidatePattern, setJSON } from "../lib/redis";
 import { stripe } from "../lib/stripe";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:5173";
@@ -50,8 +49,6 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
       ...(existing?.stripeCustomerId ? { customer: existing.stripeCustomerId } : {}),
     });
 
-    await invalidatePattern(`billing:subscription:${Number(teamId)}`);
-
     return res.status(200).json({ success: true, url: session.url });
   } catch (error: unknown) {
     const e = error as { status?: number; message?: string };
@@ -70,10 +67,6 @@ export const getSubscription = async (req: Request, res: Response) => {
     const teamId = Number(req.params.teamId);
     if (!teamId) return res.status(400).json({ success: false, message: "teamId is required" });
 
-    const cacheKey = `billing:subscription:${teamId}`;
-    const cached = await getJSON<unknown>(cacheKey);
-    if (cached) return res.status(200).json({ success: true, data: cached });
-
     const team = await prisma.team.findUnique({
       where: { id: teamId },
       select: { creatorId: true, subscription: true },
@@ -88,10 +81,7 @@ export const getSubscription = async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const data = team.subscription ?? null;
-    await setJSON(cacheKey, data, 60);
-
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json({ success: true, data: team.subscription ?? null });
   } catch {
     return res.status(500).json({ success: false, message: "Failed to fetch subscription" });
   }
@@ -133,10 +123,6 @@ export const createPortalSession = async (req: Request, res: Response) => {
 
 export const getPrices = async (_req: Request, res: Response) => {
   try {
-    const cacheKey = "billing:prices";
-    const cached = await getJSON<unknown[]>(cacheKey);
-    if (cached) return res.status(200).json({ success: true, data: cached });
-
     const prices = await stripe.prices.list({
       active: true,
       type: "recurring",
@@ -159,8 +145,6 @@ export const getPrices = async (_req: Request, res: Response) => {
             }
           : null,
     }));
-
-    await setJSON(cacheKey, data, 300);
 
     return res.status(200).json({ success: true, data });
   } catch {
@@ -201,7 +185,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
           },
         });
 
-        await invalidatePattern(`billing:subscription:${Number(teamId)}`);
         console.log(`Subscription created for team ${teamId}`);
         break;
       }
@@ -235,8 +218,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
               trialEndsAt: payload.trial_end ? new Date(payload.trial_end * 1000) : undefined,
             },
           });
-
-          await invalidatePattern(`billing:subscription:${Number(subTeamId)}`);
         }
         break;
       }
@@ -249,7 +230,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
             where: { teamId: Number(deletedTeamId) },
             data: { status: "CANCELED" },
           });
-          await invalidatePattern(`billing:subscription:${Number(deletedTeamId)}`);
         }
         break;
       }
@@ -264,7 +244,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
             where: { teamId: Number(invTeamId) },
             data: { status: "PAST_DUE" },
           });
-          await invalidatePattern(`billing:subscription:${Number(invTeamId)}`);
         }
         break;
       }

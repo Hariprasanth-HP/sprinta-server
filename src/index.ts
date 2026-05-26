@@ -110,7 +110,7 @@ async function main(): Promise<void> {
   app.use("/api/generate", requireAuth, GenerateController);
   app.use("/api/upload", requireAuth, UploadRouter);
   app.use("/api/notifications", requireAuth, NotificationRouter);
-  // app.use("/api/billing", requireAuth, BillingRouter);
+  app.use("/api/billing", requireAuth, BillingRouter);
 
   // Connect Prisma then start server
   try {
