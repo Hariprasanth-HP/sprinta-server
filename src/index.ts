@@ -7,8 +7,10 @@ import express from "express";
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import { handleWebhook } from "./controllers/billing.controller";
+import { connectRedis } from "./lib/redis";
 import { prisma } from "./db";
 import { requireAuth } from "./middleware/authMiddleware";
+import { rateLimiter } from "./middleware/rateLimiter";
 import ActivityRouter from "./routes/activity.route";
 import AuthRouter from "./routes/auth/auth.route";
 import BillingRouter from "./routes/billing.route";
@@ -74,6 +76,7 @@ app.use(
 );
 app.post("/api/billing/webhook", express.raw({ type: "application/json" }), handleWebhook);
 app.use(express.json());
+app.use(rateLimiter);
 app.get("/", (_, res) => {
   res.status(200).json({
     success: true,
@@ -106,11 +109,11 @@ async function main(): Promise<void> {
   app.use("/api/generate", requireAuth, GenerateController);
   app.use("/api/upload", requireAuth, UploadRouter);
   app.use("/api/notifications", requireAuth, NotificationRouter);
-  app.use("/api/billing", requireAuth, BillingRouter);
+  // app.use("/api/billing", requireAuth, BillingRouter);
 
   // Connect Prisma then start server
   try {
-    await prisma.$connect();
+    await Promise.all([prisma.$connect(), connectRedis()]);
     httpServer.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });

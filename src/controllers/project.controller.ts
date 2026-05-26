@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
 import { prisma } from "../db";
 import { err } from "../lib/helper";
+import { getJSON, invalidatePattern, setJSON } from "../lib/redis";
 
 // CREATE project
 const createProject = async (req: Request, res: Response) => {
@@ -114,17 +115,19 @@ const getProjects = async (req: Request, res: Response) => {
           },
         };
 
+    const cacheKey = `projects:team:${parsedTeamId}:user:${user.id}`;
+    const cached = await getJSON<any[]>(cacheKey);
+    if (cached) {
+      return res.status(200).json({ success: true, data: cached });
+    }
+
     const projects = await prisma.project.findMany({
       where,
-
-      orderBy: {
-        createdAt: "desc",
-      },
-
-      include: {
-        members: true,
-      },
+      orderBy: { createdAt: "desc" },
+      include: { members: true },
     });
+
+    setJSON(cacheKey, projects, 120).catch(() => {});
 
     return res.status(200).json({
       success: true,
@@ -141,26 +144,21 @@ const getProjects = async (req: Request, res: Response) => {
 const getProject = async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) return err(res, 400, "Invalid project id.");
 
-    if (Number.isNaN(id)) {
-      return err(res, 400, "Invalid project id.");
-    }
+    const cacheKey = `project:${id}`;
+    const cached = await getJSON<any>(cacheKey);
+    if (cached) return res.status(200).json({ success: true, data: cached });
 
     const project = await prisma.project.findUnique({
       where: { id },
-      include: {
-        tasks: true,
-      },
+      include: { tasks: true },
     });
+    if (!project) return err(res, 404, "Project not found.");
 
-    if (!project) {
-      return err(res, 404, "Project not found.");
-    }
+    setJSON(cacheKey, project, 120).catch(() => {});
 
-    return res.status(200).json({
-      success: true,
-      data: project,
-    });
+    return res.status(200).json({ success: true, data: project });
   } catch (e: any) {
     console.error("getProject error:", e);
 
@@ -246,6 +244,9 @@ const updateProject = async (req: Request, res: Response) => {
       data,
     });
 
+    invalidatePattern(`project:${id}`).catch(() => {});
+    invalidatePattern(`projects:team:*`).catch(() => {});
+
     return res.status(200).json({
       success: true,
       data: updated,
@@ -281,6 +282,9 @@ const deleteProject = async (req: Request, res: Response) => {
     await prisma.project.delete({
       where: { id },
     });
+
+    invalidatePattern(`project:${id}`).catch(() => {});
+    invalidatePattern(`projects:team:*`).catch(() => {});
 
     return res.status(200).json({
       success: true,

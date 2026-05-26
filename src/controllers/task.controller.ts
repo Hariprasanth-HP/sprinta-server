@@ -2,6 +2,7 @@
 import { ActivityKind, type Priority, Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
 import { prisma } from "../db";
+import { getJSON, invalidatePattern, setJSON } from "../lib/redis";
 import { createNotification } from "./notification.controller";
 
 // Type shapes for requests (loose to exactly match your runtime checks)
@@ -117,8 +118,10 @@ const createTask = async (
         title: "New task assigned",
         message: result.name,
         link: `/tasks/${result.id}`,
-      }).catch(() => {});
+      }).catch(() => { });
     }
+
+    invalidatePattern(`tasks:project:${result.projectId}`).catch(() => { });
 
     res.status(201).json({ success: true, data: result });
     return;
@@ -157,6 +160,13 @@ const getTasks = async (
         return;
       }
       where.projectId = sid;
+
+      const cacheKey = `tasks:project:${sid}`;
+      const cached = await getJSON<any[]>(cacheKey);
+      if (cached) {
+        res.status(200).json({ success: true, data: cached });
+        return;
+      }
     }
 
     const tasks = await prisma.task.findMany({
@@ -172,7 +182,10 @@ const getTasks = async (
       },
     });
 
-    res.status(200).json({ success: true, data: tasks.filter((t) => !t.parentTaskId) });
+    const filtered = tasks.filter((t) => !t.parentTaskId);
+    if (where.projectId) setJSON(`tasks:project:${where.projectId}`, filtered, 60).catch(() => { });
+
+    res.status(200).json({ success: true, data: filtered });
     return;
   } catch {
     res.status(500).json({ success: false, error: "Failed to fetch tasks." });
@@ -192,6 +205,13 @@ const getTask = async (
       return;
     }
 
+    const cacheKey = `task:${id}`;
+    const cached = await getJSON<any>(cacheKey);
+    if (cached) {
+      res.status(200).json({ success: true, data: cached });
+      return;
+    }
+
     const task = await prisma.task.findUnique({
       where: { id },
       include: { subTasks: true },
@@ -200,6 +220,8 @@ const getTask = async (
       res.status(404).json({ success: false, error: "Task not found." });
       return;
     }
+
+    setJSON(cacheKey, task, 60).catch(() => { });
 
     res.status(200).json({ success: true, data: task });
     return;
@@ -423,8 +445,11 @@ const updateTask = async (
         title: "Task reassigned",
         message: updatedTask.name,
         link: `/tasks/${updatedTask.id}`,
-      }).catch(() => {});
+      }).catch(() => { });
     }
+
+    invalidatePattern(`tasks:project:*`).catch(() => { });
+    invalidatePattern(`task:${id}`).catch(() => { });
 
     res.status(200).json({ success: true, data: updatedTask, activity: createdActivity });
     return;
@@ -472,10 +497,12 @@ const deleteTask = async (req: Request<{ id: string }>, res: Response): Promise<
       });
       return;
     }
-    await prisma.task.delete({
+    const deletedTask = await prisma.task.delete({
       where: { id },
       include: { subTasks: true },
     });
+    invalidatePattern(`tasks:project:*`).catch(() => { });
+    invalidatePattern(`task:${id}`).catch(() => { });
     res.status(200).json({ success: true, data: `Task ${id} deleted` });
     return;
   } catch (e: unknown) {

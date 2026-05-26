@@ -2,6 +2,7 @@
   "dependencies": {
     "@google/genai": "^1.30.0",
     "@prisma/client": "^6.18.0",
+    "@socket.io/redis-adapter": "^8.3.0",
     "@supabase/supabase-js": "^2.105.3",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.8.0",
@@ -11,6 +12,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "google-auth-library": "^10.5.0",
+    "ioredis": "^5.11.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
@@ -25,6 +27,7 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev:redis": "bash scripts/dev.sh",
     "build": "prisma generate && tsc",
     "start": "nodemon dist/index.js",
     "lint": "biome check .",

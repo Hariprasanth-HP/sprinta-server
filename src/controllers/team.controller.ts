@@ -2,6 +2,7 @@
 import type { Request, Response } from "express";
 import { prisma } from "../db";
 import { err } from "../lib/helper";
+import { getJSON, invalidatePattern, setJSON } from "../lib/redis";
 import { TeamRole } from "../types/type";
 
 /**
@@ -74,6 +75,7 @@ const createTeam = async (req: Request, res: Response) => {
       });
 
       createdTeam = result;
+      invalidatePattern(`teams:user:*`).catch(() => {});
     }
     return res.status(201).json({ success: true, data: createdTeam });
   } catch (e: any) {
@@ -98,57 +100,40 @@ const createTeam = async (req: Request, res: Response) => {
 async function getTeamsFromUser(req: Request, res: Response) {
   try {
     const user = req.user;
-    console.log("useruseruser1", user);
-
     if (!user?.id) {
       return err(res, 400, "Authenticated user required.");
     }
 
+    const cacheKey = `teams:user:${user.id}`;
+    const cached = await getJSON<any[]>(cacheKey);
+    if (cached) {
+      return res.status(200).json({ success: true, data: cached });
+    }
+
     const teams = await prisma.team.findMany({
       where: {
-        members: {
-          some: {
-            email: user.email,
-          },
-        },
+        members: { some: { email: user.email } },
       },
-
-      include: {
-        members: true,
-      },
-
-      orderBy: {
-        createdAt: "desc",
-      },
+      include: { members: true },
+      orderBy: { createdAt: "desc" },
     });
 
     const teamsWithProjects = await Promise.all(
       teams.map(async (team) => {
         const membership = team.members.find((m) => m.userId === user.id);
-
         const isAdmin = membership?.role === "OWNER" || membership?.role === "ADMIN";
 
         const projects = await prisma.project.findMany({
           where: isAdmin
-            ? {
-                teamId: team.id,
-              }
-            : {
-                teamId: team.id,
-                members: {
-                  some: {
-                    userId: user.id,
-                  },
-                },
-              },
+            ? { teamId: team.id }
+            : { teamId: team.id, members: { some: { userId: user.id } } },
         });
 
-        return {
-          ...team,
-          projects,
-        };
+        return { ...team, projects };
       }),
     );
+
+    setJSON(cacheKey, teamsWithProjects, 120).catch(() => {});
 
     return res.status(200).json({
       success: true,
@@ -156,7 +141,6 @@ async function getTeamsFromUser(req: Request, res: Response) {
     });
   } catch (e) {
     console.error("getTeamsFromUser error:", e);
-
     return err(res, 500, "Failed to fetch teams.");
   }
 }
@@ -402,6 +386,8 @@ const updateTeam = async (req: Request, res: Response) => {
       include: { projects: true, members: true },
     });
 
+    invalidatePattern(`teams:user:*`).catch(() => {});
+
     return res.status(200).json({ success: true, data: updated });
   } catch (e: any) {
     if (e?.code === "P2002" && e?.meta && String(e.meta.target).includes("name")) {
@@ -436,6 +422,7 @@ const deleteTeam = async (req: Request, res: Response) => {
     }
 
     await prisma.team.delete({ where: { id } });
+    invalidatePattern(`teams:user:*`).catch(() => {});
     return res.status(200).json({ success: true, data: `Team ${id} deleted` });
   } catch (e: any) {
     console.error("deleteTeam error:", e);

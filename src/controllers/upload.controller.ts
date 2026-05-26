@@ -2,6 +2,9 @@ import { AssetType } from "@prisma/client";
 import type { Request, Response } from "express";
 import cloudinary from "../cloudinary_config";
 import { prisma } from "../db";
+import { getJSON, invalidatePattern, setJSON } from "../lib/redis";
+
+const ASSETS_TTL = 60;
 
 /**
  * Upload images / videos to Cloudinary
@@ -47,6 +50,8 @@ export const uploadMedia = async (req: Request, res: Response) => {
         orderBy: { id: "asc" },
       });
 
+      if (taskId) invalidatePattern(`assets:task:${taskId}`);
+
       return res.status(200).json({
         success: true,
         count: created.length,
@@ -65,6 +70,8 @@ export const uploadMedia = async (req: Request, res: Response) => {
           ...(activityId !== undefined ? { activityId } : {}),
         },
       });
+
+      if (taskId) invalidatePattern(`assets:task:${taskId}`);
 
       return res.status(200).json({
         success: true,
@@ -96,10 +103,16 @@ export const getTaskAssets = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "taskId is required" });
     }
 
+    const cacheKey = `assets:task:${taskId}`;
+    const cached = await getJSON<unknown[]>(cacheKey);
+    if (cached) return res.status(200).json({ success: true, data: cached });
+
     const assets = await prisma.asset.findMany({
       where: { taskId },
       orderBy: { createdAt: "desc" },
     });
+
+    await setJSON(cacheKey, assets, ASSETS_TTL);
 
     return res.status(200).json({ success: true, data: assets });
   } catch (error: unknown) {
@@ -128,7 +141,10 @@ export const deleteAsset = async (req: Request, res: Response) => {
       // Proceed even if Cloudinary delete fails
     }
 
+    const { taskId: assetTaskId } = asset;
     await prisma.asset.delete({ where: { id } });
+
+    if (assetTaskId) invalidatePattern(`assets:task:${assetTaskId}`);
 
     return res.status(200).json({ success: true, message: "Asset deleted" });
   } catch (error: unknown) {

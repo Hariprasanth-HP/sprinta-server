@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
 import { prisma } from "../db";
 import { err } from "../lib/helper";
+import { getJSON, invalidatePattern, setJSON } from "../lib/redis";
 import { createNotification } from "./notification.controller";
 
 /**
@@ -104,6 +105,8 @@ export const createActivity = async (req: Request, res: Response): Promise<Respo
       },
     });
 
+    invalidatePattern(`activities:task:${parsedTaskId}`).catch(() => {});
+
     return res.status(201).json({ success: true, data: finalActivity ?? created });
   } catch (e) {
     console.error("createActivity error:", e);
@@ -124,12 +127,18 @@ export const getActivities = async (req: Request, res: Response): Promise<Respon
     if (Number.isNaN(parsedTaskId)) {
       return err(res, 400, "taskId is required and must be a number.");
     }
+    const cacheKey = `activities:task:${parsedTaskId}`;
+    const cached = await getJSON<any[]>(cacheKey);
+    if (cached) {
+      return res.status(200).json({ success: true, data: cached, meta: { total: cached.length } });
+    }
+
     const rows = await prisma.activity.findMany({
       where: {
         taskId: parsedTaskId,
       },
       include: { user: true, assets: true },
-      orderBy: { createdAt: "asc" }, // fetch ascending so build preserves chronological order
+      orderBy: { createdAt: "asc" },
     });
 
     // build tree util - preserves order of 'rows' (we fetched asc)
@@ -158,6 +167,8 @@ export const getActivities = async (req: Request, res: Response): Promise<Respon
 
     const finalTree = treeAsc;
 
+    setJSON(cacheKey, finalTree, 60).catch(() => {});
+
     return res.status(200).json({
       success: true,
       data: finalTree,
@@ -181,6 +192,10 @@ export const getActivity = async (req: Request, res: Response): Promise<Response
     const parsed = parseInt(String(id), 10);
     if (Number.isNaN(parsed)) return err(res, 400, "id must be a number.");
 
+    const cacheKey = `activity:${parsed}`;
+    const cached = await getJSON<any>(cacheKey);
+    if (cached) return res.status(200).json({ success: true, data: cached });
+
     const Activity = await prisma.activity.findUnique({
       where: { id: parsed },
       include: {
@@ -192,6 +207,9 @@ export const getActivity = async (req: Request, res: Response): Promise<Response
       },
     });
     if (!Activity) return err(res, 404, "Activity not found.");
+
+    setJSON(cacheKey, Activity, 60).catch(() => {});
+
     return res.status(200).json({ success: true, data: Activity });
   } catch (e) {
     console.error("getActivity error:", e);
@@ -220,6 +238,9 @@ export const updateActivity = async (req: Request, res: Response): Promise<Respo
       data: { description: String(description).trim() },
       include: { user: { select: { id: true, name: true } } },
     });
+
+    invalidatePattern(`activity:${parsed}`).catch(() => {});
+    if (updated.taskId) invalidatePattern(`activities:task:${updated.taskId}`).catch(() => {});
 
     return res.status(200).json({ success: true, data: updated });
   } catch (e: any) {
@@ -265,6 +286,8 @@ export const deleteActivity = async (req: Request, res: Response): Promise<Respo
         where: { id: parsed },
         data: { isDeleted: true },
       });
+      invalidatePattern(`activity:${parsed}`).catch(() => {});
+      if (updated.taskId) invalidatePattern(`activities:task:${updated.taskId}`).catch(() => {});
       return res.status(200).json({ success: true, data: updated });
     }
 
@@ -277,6 +300,8 @@ export const deleteActivity = async (req: Request, res: Response): Promise<Respo
       );
     }
 
+    const { taskId: activityTaskId } = Activity;
+
     // recursive hard delete in a transaction (safe)
     await prisma.$transaction(async (tx) => {
       if (String(force) === "true") {
@@ -284,6 +309,9 @@ export const deleteActivity = async (req: Request, res: Response): Promise<Respo
       }
       await tx.activity.delete({ where: { id: parsed } });
     });
+
+    invalidatePattern(`activity:${parsed}`).catch(() => {});
+    if (activityTaskId) invalidatePattern(`activities:task:${activityTaskId}`).catch(() => {});
 
     return res.status(200).json({ success: true, data: `Activity ${parsed} deleted` });
   } catch (e: any) {

@@ -2,6 +2,7 @@
 import type { Request, Response } from "express";
 import { prisma } from "../db";
 import { err } from "../lib/helper";
+import { getJSON, invalidatePattern, setJSON } from "../lib/redis";
 
 // Prisma error type guard
 function isPrismaError(e: unknown): e is { code: string } {
@@ -60,6 +61,8 @@ export const createTaskStatus = async (req: Request, res: Response) => {
       },
     });
 
+    invalidatePattern(`statuses:project:${projectId}`).catch(() => {});
+
     return res.status(201).json({ success: true, data: created });
   } catch (e) {
     if (isPrismaError(e) && e.code === "P2002") {
@@ -84,10 +87,16 @@ export const getTaskStatusesByProject = async (req: Request, res: Response) => {
 
     if (Number.isNaN(projectId)) return err(res, 400, "projectId must be a number.");
 
+    const cacheKey = `statuses:project:${projectId}`;
+    const cached = await getJSON<any[]>(cacheKey);
+    if (cached) return res.status(200).json({ success: true, data: cached });
+
     const statuses = await prisma.taskStatus.findMany({
       where: { projectId },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
+
+    setJSON(cacheKey, statuses, 300).catch(() => {});
 
     return res.status(200).json({ success: true, data: statuses });
   } catch (e) {
@@ -152,6 +161,8 @@ export const updateTaskStatus = async (req: Request, res: Response) => {
       data,
     });
 
+    invalidatePattern(`statuses:project:${existing.projectId}`).catch(() => {});
+
     return res.status(200).json({ success: true, data: updated });
   } catch (e) {
     if (isPrismaError(e) && e.code === "P2002") {
@@ -182,6 +193,8 @@ export const deleteTaskStatus = async (req: Request, res: Response) => {
     }
 
     await prisma.taskStatus.delete({ where: { id } });
+
+    invalidatePattern(`statuses:project:${status.projectId}`).catch(() => {});
 
     return res.status(200).json({ success: true, data: `Status ${id} deleted` });
   } catch (e) {

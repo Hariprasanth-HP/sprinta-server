@@ -1,6 +1,7 @@
 import type { NotificationType, Prisma, Severity } from "@prisma/client";
 import type { Request, Response } from "express";
 import { prisma } from "../db";
+import { getJSON, incr, decr, setCounter, setJSON, invalidatePattern } from "../lib/redis";
 import { getIO } from "../socket";
 
 export async function createNotification({
@@ -24,6 +25,9 @@ export async function createNotification({
     data: { userId, type, severity, title, message, link, metadata },
   });
 
+  incr(`unread:${userId}`).catch(() => {});
+  invalidatePattern(`notifications:user:${userId}:*`).catch(() => {});
+
   try {
     const io = getIO();
     io.to(`user:${userId}`).emit("notification", notification);
@@ -44,25 +48,23 @@ export const getNotifications = async (req: Request, res: Response) => {
     const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
     const skip = (page - 1) * limit;
 
+    const cacheKey = `notifications:user:${userId}:page:${page}:limit:${limit}:isRead:${isRead ?? "all"}`;
+    const cached = await getJSON<{ data: any[]; meta: any }>(cacheKey);
+    if (cached) return res.status(200).json({ success: true, ...cached });
+
     const where: Record<string, unknown> = { userId };
     if (isRead === "true") where.isRead = true;
     else if (isRead === "false") where.isRead = false;
 
     const [data, total] = await Promise.all([
-      prisma.notification.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-      }),
+      prisma.notification.findMany({ where, orderBy: { createdAt: "desc" }, skip, take: limit }),
       prisma.notification.count({ where }),
     ]);
 
-    return res.status(200).json({
-      success: true,
-      data,
-      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    });
+    const meta = { page, limit, total, totalPages: Math.ceil(total / limit) };
+    setJSON(cacheKey, { data, meta }, 30).catch(() => {});
+
+    return res.status(200).json({ success: true, data, meta });
   } catch (error: unknown) {
     return res.status(500).json({
       success: false,
@@ -76,9 +78,12 @@ export const getUnreadCount = async (req: Request, res: Response) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
 
-    const count = await prisma.notification.count({
-      where: { userId, isRead: false },
-    });
+    const counterKey = `unread:${userId}`;
+    let count = await getJSON<number>(counterKey);
+    if (count === null) {
+      count = await prisma.notification.count({ where: { userId, isRead: false } });
+      setCounter(counterKey, count, 86400).catch(() => {});
+    }
 
     return res.status(200).json({ success: true, count });
   } catch (error: unknown) {
@@ -108,6 +113,9 @@ export const markAsRead = async (req: Request, res: Response) => {
       data: { isRead: true, readAt: new Date() },
     });
 
+    decr(`unread:${userId}`).catch(() => {});
+    invalidatePattern(`notifications:user:${userId}:*`).catch(() => {});
+
     return res.status(200).json({ success: true, data: updated });
   } catch (error: unknown) {
     return res.status(500).json({
@@ -126,6 +134,9 @@ export const markAllAsRead = async (req: Request, res: Response) => {
       where: { userId, isRead: false },
       data: { isRead: true, readAt: new Date() },
     });
+
+    setCounter(`unread:${userId}`, 0).catch(() => {});
+    invalidatePattern(`notifications:user:${userId}:*`).catch(() => {});
 
     return res.status(200).json({ success: true, message: "All notifications marked as read" });
   } catch (error: unknown) {
