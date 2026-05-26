@@ -38,6 +38,7 @@ const allowedOrigins = [
   "http://localhost:3000", // Next.js / CRA
   "https://hariprasanth-hp.github.io",
   "https://sprinta-rho.vercel.app",
+  "https://www.sprinta.cc",
 ];
 
 const swaggerSpec = swaggerJsdoc({
