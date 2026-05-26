@@ -202,6 +202,38 @@ export interface Notification {
   readAt: ISODateString | null;
 }
 
+export enum SubscriptionStatus {
+  TRIALING = "TRIALING",
+  ACTIVE = "ACTIVE",
+  PAST_DUE = "PAST_DUE",
+  CANCELED = "CANCELED",
+  INCOMPLETE = "INCOMPLETE",
+  EXPIRED = "EXPIRED",
+}
+
+export interface TeamSubscription {
+  id: string;
+  teamId: number;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  priceId: string | null;
+  status: SubscriptionStatus;
+  trialEndsAt: ISODateString | null;
+  currentPeriodStart: ISODateString | null;
+  currentPeriodEnd: ISODateString | null;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export interface StripePrice {
+  id: string;
+  nickname: string | null;
+  currency: string;
+  unitAmount: number | null;
+  recurring: { interval: string; intervalCount: number } | null;
+  product: { id: string; name: string; description: string | null } | null;
+}
+
 /* ---------------------------
    Convenience: Auth slice / UI-related types
    (based on your usage in ProtectedRoutes)

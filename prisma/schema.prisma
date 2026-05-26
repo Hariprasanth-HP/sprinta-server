@@ -75,6 +75,15 @@ enum TeamRole {
   MEMBER
 }
 
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  EXPIRED
+}
+
 enum ProjectRole {
   MANAGER
   EDITOR
@@ -90,6 +99,7 @@ model Team {
   creator   User         @relation("CreatedTeams", fields: [creatorId], references: [id])
   members   TeamMember[]
   projects  Project[]
+  subscription TeamSubscription?
 }
 
 model TeamMember {
@@ -294,4 +304,26 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([userId, createdAt])
+}
+
+model TeamSubscription {
+  id            String   @id @default(uuid())
+  teamId        Int      @unique
+  team          Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  stripeCustomerId    String?  @unique
+  stripeSubscriptionId String? @unique
+
+  priceId String?
+
+  status      SubscriptionStatus @default(TRIALING)
+  trialEndsAt DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
 }

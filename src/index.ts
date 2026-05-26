@@ -6,10 +6,12 @@ import dotenv from "dotenv";
 import express from "express";
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
+import { handleWebhook } from "./controllers/billing.controller";
 import { prisma } from "./db";
 import { requireAuth } from "./middleware/authMiddleware";
 import ActivityRouter from "./routes/activity.route";
 import AuthRouter from "./routes/auth/auth.route";
+import BillingRouter from "./routes/billing.route";
 import GenerateController from "./routes/generate.route";
 import ListRouter from "./routes/list.route";
 import MemberRouter from "./routes/member.route";
@@ -70,6 +72,7 @@ app.use(
     credentials: true, // 💥 REQUIRED for cookies
   }),
 );
+app.post("/api/billing/webhook", express.raw({ type: "application/json" }), handleWebhook);
 app.use(express.json());
 app.get("/", (_, res) => {
   res.status(200).json({
@@ -103,6 +106,7 @@ async function main(): Promise<void> {
   app.use("/api/generate", requireAuth, GenerateController);
   app.use("/api/upload", requireAuth, UploadRouter);
   app.use("/api/notifications", requireAuth, NotificationRouter);
+  app.use("/api/billing", requireAuth, BillingRouter);
 
   // Connect Prisma then start server
   try {
