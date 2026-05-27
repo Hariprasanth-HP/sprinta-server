@@ -90,64 +90,72 @@ export const createUser = async (
  * List users with pagination
  * query: ?page=1&limit=20
  */
+async function paginateUsers(req: Request, res: Response, where?: Record<string, unknown>) {
+  const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || "20", 10)));
+  const cursor = req.query.cursor ? String(req.query.cursor) : undefined;
+
+  if (cursor) {
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        take: limit + 1,
+        cursor: { id: cursor },
+        skip: 1,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        where,
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    const hasMore = users.length > limit;
+    const sliced = hasMore ? users.slice(0, limit) : users;
+    const nextCursor = hasMore ? sliced[sliced.length - 1]?.id : undefined;
+
+    const sanitized = sliced.map((u) => sanitizeUser(u));
+    res.status(200).json({
+      success: true,
+      data: sanitized,
+      meta: { total, limit, nextCursor },
+    });
+    return;
+  }
+
+  const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
+  const skip = (page - 1) * limit;
+
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({ skip, take: limit, orderBy: { createdAt: "desc" }, where }),
+    prisma.user.count({ where }),
+  ]);
+
+  const sanitized = users.map((u) => sanitizeUser(u));
+  res.status(200).json({
+    success: true,
+    data: sanitized,
+    meta: { total, page, limit, pages: Math.ceil(total / limit) },
+  });
+}
+
 export const getUsers = async (
   req: Request<Record<string, never>, unknown, unknown>,
   res: Response,
 ): Promise<void> => {
   try {
-    const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
-    const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || "20", 10)));
-    const skip = (page - 1) * limit;
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        skip,
-        take: limit,
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.user.count(),
-    ]);
-
-    const sanitized = users.map((u) => sanitizeUser(u));
-
-    res.status(200).json({
-      success: true,
-      data: sanitized,
-      meta: { total, page, limit, pages: Math.ceil(total / limit) },
-    });
-    return;
+    return void await paginateUsers(req, res);
   } catch (e) {
     console.error("getUsers error:", e);
     return void err(res, 500, "Failed to fetch users.");
   }
 };
+
 export const getUsersFromTeam = async (
   req: Request<Record<string, never>, unknown, unknown>,
   res: Response,
 ): Promise<void> => {
   try {
-    const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
-    const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || "20", 10)));
-    const skip = (page - 1) * limit;
     const parsedTeamId = parseInt(String(req.query?.teamId), 10);
     if (Number.isNaN(parsedTeamId)) return void err(res, 400, "Invalid Team id.");
 
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        skip,
-        take: limit,
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.user.count(),
-    ]);
-
-    const sanitized = users.map((u) => sanitizeUser(u));
-
-    res.status(200).json({
-      success: true,
-      data: sanitized,
-      meta: { total, page, limit, pages: Math.ceil(total / limit) },
-    });
-    return;
+    return void await paginateUsers(req, res);
   } catch (e) {
     console.error("getUsers error:", e);
     return void err(res, 500, "Failed to fetch users.");

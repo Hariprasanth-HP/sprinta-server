@@ -90,6 +90,8 @@ model Team {
   creator   User         @relation("CreatedTeams", fields: [creatorId], references: [id])
   members   TeamMember[]
   projects  Project[]
+
+  @@index([creatorId])
 }
 
 model TeamMember {
@@ -112,6 +114,8 @@ model TeamMember {
   addedBy   User?    @relation("AddedById", fields: [addedById], references: [id])
 
   @@unique([teamId, email], name: "uniq_team_email")
+  @@index([teamId, userId])
+  @@index([teamId, role])
 }
 
 model Project {
@@ -161,6 +165,9 @@ model List {
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   tasks Task[]
+
+  @@index([projectId])
+  @@index([projectId, createdAt])
 }
 
 model Task {
@@ -196,6 +203,7 @@ model Task {
   assets Asset[]
 
   @@index([projectId])
+  @@index([projectId, createdAt])
   @@index([parentTaskId])
   @@index([assignedById])
   @@index([assigneeId])
@@ -221,7 +229,7 @@ model Asset {
 
   createdAt DateTime @default(now())
 
-  @@index([taskId])
+  @@index([taskId, createdAt])
   @@index([activityId])
 }
 
@@ -273,8 +281,9 @@ model Activity {
 
   assets Asset[]
 
-  @@index([taskId])
+  @@index([taskId, createdAt])
   @@index([userId])
+  @@index([parentId])
   @@index([kind, createdAt])
 }
 

@@ -137,7 +137,10 @@ export const getActivities = async (req: Request, res: Response): Promise<Respon
       where: {
         taskId: parsedTaskId,
       },
-      include: { user: true, assets: true },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        assets: true,
+      },
       orderBy: { createdAt: "asc" },
     });
 

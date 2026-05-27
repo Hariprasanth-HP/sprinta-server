@@ -118,20 +118,37 @@ async function getTeamsFromUser(req: Request, res: Response) {
       orderBy: { createdAt: "desc" },
     });
 
-    const teamsWithProjects = await Promise.all(
-      teams.map(async (team) => {
-        const membership = team.members.find((m) => m.userId === user.id);
-        const isAdmin = membership?.role === "OWNER" || membership?.role === "ADMIN";
+    const adminTeamIds: number[] = [];
+    const memberTeamIds: number[] = [];
+    for (const t of teams) {
+      const role = t.members.find((m) => m.userId === user.id)?.role;
+      if (role === "OWNER" || role === "ADMIN") adminTeamIds.push(t.id);
+      else memberTeamIds.push(t.id);
+    }
 
-        const projects = await prisma.project.findMany({
-          where: isAdmin
-            ? { teamId: team.id }
-            : { teamId: team.id, members: { some: { userId: user.id } } },
-        });
+    const [adminProjects, memberProjects] = await Promise.all([
+      adminTeamIds.length > 0
+        ? prisma.project.findMany({ where: { teamId: { in: adminTeamIds } } })
+        : Promise.resolve([]),
+      memberTeamIds.length > 0
+        ? prisma.project.findMany({
+            where: { teamId: { in: memberTeamIds }, members: { some: { userId: user.id } } },
+          })
+        : Promise.resolve([]),
+    ]);
 
-        return { ...team, projects };
-      }),
-    );
+    const projectsByTeam = new Map<number, typeof adminProjects>();
+    for (const p of [...adminProjects, ...memberProjects]) {
+      if (!p.teamId) continue;
+      const arr = projectsByTeam.get(p.teamId) ?? [];
+      arr.push(p);
+      projectsByTeam.set(p.teamId, arr);
+    }
+
+    const teamsWithProjects = teams.map((t) => ({
+      ...t,
+      projects: projectsByTeam.get(t.id) ?? [],
+    }));
 
     setJSON(cacheKey, teamsWithProjects, 120).catch(() => {});
 
