@@ -44,49 +44,19 @@ export const getNotifications = async (req: Request, res: Response) => {
     if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
 
     const isRead = req.query.isRead as string | undefined;
-    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
-    const cursor = req.query.cursor ? Number(req.query.cursor) : undefined;
-
-    const where: Record<string, unknown> = { userId };
-    if (isRead === "true") where.isRead = true;
-    else if (isRead === "false") where.isRead = false;
-
-    let data: any[];
-    let total: number;
-
-    if (cursor) {
-      const cacheKey = `notifications:user:${userId}:cursor:${cursor}:limit:${limit}:isRead:${isRead ?? "all"}`;
-      const cached = await getJSON<{ data: any[]; meta: any }>(cacheKey);
-      if (cached) return res.status(200).json({ success: true, ...cached });
-
-      [data, total] = await Promise.all([
-        prisma.notification.findMany({
-          where,
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          take: limit + 1,
-          cursor: { id: cursor },
-          skip: 1,
-        }),
-        prisma.notification.count({ where }),
-      ]);
-
-      const hasMore = data.length > limit;
-      if (hasMore) data = data.slice(0, limit);
-      const nextCursor = hasMore ? data[data.length - 1]?.id : undefined;
-
-      const meta = { total, limit, nextCursor };
-      setJSON(cacheKey, { data, meta }, 30).catch(() => {});
-      return res.status(200).json({ success: true, data, meta });
-    }
-
     const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
     const skip = (page - 1) * limit;
 
     const cacheKey = `notifications:user:${userId}:page:${page}:limit:${limit}:isRead:${isRead ?? "all"}`;
     const cached = await getJSON<{ data: any[]; meta: any }>(cacheKey);
     if (cached) return res.status(200).json({ success: true, ...cached });
 
-    [data, total] = await Promise.all([
+    const where: Record<string, unknown> = { userId };
+    if (isRead === "true") where.isRead = true;
+    else if (isRead === "false") where.isRead = false;
+
+    const [data, total] = await Promise.all([
       prisma.notification.findMany({ where, orderBy: { createdAt: "desc" }, skip, take: limit }),
       prisma.notification.count({ where }),
     ]);

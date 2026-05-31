@@ -179,6 +179,8 @@ model Task {
   priority Priority  @default(MEDIUM)
   dueDate  DateTime?
 
+  sortOrder Float @default(0)
+
   parentTaskId Int?
   parentTask   Task?  @relation("TaskSubTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
   subTasks     Task[] @relation("TaskSubTasks")
@@ -204,6 +206,7 @@ model Task {
 
   @@index([projectId])
   @@index([projectId, createdAt])
+  @@index([projectId, sortOrder])
   @@index([parentTaskId])
   @@index([assignedById])
   @@index([assigneeId])

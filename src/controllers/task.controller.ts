@@ -5,6 +5,8 @@ import { prisma } from "../db";
 import { getJSON, invalidatePattern, setJSON } from "../lib/redis";
 import { createNotification } from "./notification.controller";
 
+const SORT_GAP = 100000;
+
 // Type shapes for requests (loose to exactly match your runtime checks)
 type CreateTaskBody = {
   name?: string;
@@ -31,12 +33,15 @@ type UpdateTaskBody = {
   assignedById?: string | undefined;
   assigneeId?: string | undefined;
   statusId?: unknown | null;
+  sortOrder?: unknown;
   userId?: string;
 };
 
 type TaskQuery = {
   projectId?: string | string[] | undefined;
   id?: string | string[] | undefined;
+  cursor?: string | undefined;
+  limit?: string | undefined;
 };
 
 /* ---------- CREATE task ---------- */
@@ -89,12 +94,18 @@ const createTask = async (
       return;
     }
 
+    const maxSort = await prisma.task.aggregate({
+      where: { projectId: sid, parentTaskId: parentTaskId ?? null },
+      _max: { sortOrder: true },
+    });
+
     const result = await prisma.task.create({
       data: {
         name: (name as string).trim(),
         description: description! ?? null,
         priority,
         dueDate: dueDate ? new Date(String(dueDate)) : null,
+        sortOrder: (maxSort._max.sortOrder ?? -SORT_GAP) + SORT_GAP,
         listId,
         projectId: sid,
         parentTaskId,
@@ -160,30 +171,62 @@ const getTasks = async (
         return;
       }
       where.projectId = sid;
+    }
 
-      const cacheKey = `tasks:project:${sid}`;
+    const cursor = req.query.cursor ? Number(req.query.cursor) : undefined;
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+
+    const baseInclude = {
+      assets: true,
+      subTasks: {
+        include: { assets: true },
+        orderBy: [{ sortOrder: "asc" as const }, { createdAt: "desc" as const }],
+      },
+    } as Prisma.TaskInclude;
+
+    if (cursor) {
+      const cacheKey = `tasks:project:${where.projectId}:cursor:${cursor}:limit:${limit}`;
       const cached = await getJSON<any[]>(cacheKey);
       if (cached) {
         res.status(200).json({ success: true, data: cached });
         return;
       }
+
+      const raw = await prisma.task.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: limit + 1,
+        cursor: { id: cursor },
+        skip: 1,
+        include: baseInclude,
+      });
+
+      const hasMore = raw.length > limit;
+      const slice = hasMore ? raw.slice(0, limit) : raw;
+      const filtered = slice.filter((t) => !t.parentTaskId);
+      const nextCursor = hasMore ? slice[slice.length - 1]?.id : undefined;
+
+      const result = { data: filtered, meta: { nextCursor, limit } };
+      setJSON(cacheKey, result.data, 60).catch(() => {});
+      res.status(200).json({ success: true, ...result });
+      return;
+    }
+
+    const cacheKey = `tasks:project:${where.projectId}`;
+    const cached = await getJSON<any[]>(cacheKey);
+    if (cached) {
+      res.status(200).json({ success: true, data: cached });
+      return;
     }
 
     const tasks = await prisma.task.findMany({
       where,
-      orderBy: { createdAt: "desc" },
-      include: {
-        assets: true,
-        subTasks: {
-          include: {
-            assets: true,
-          },
-        },
-      },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      include: baseInclude,
     });
 
     const filtered = tasks.filter((t) => !t.parentTaskId);
-    if (where.projectId) setJSON(`tasks:project:${where.projectId}`, filtered, 60).catch(() => { });
+    if (where.projectId) setJSON(`tasks:project:${where.projectId}`, filtered, 60).catch(() => {});
 
     res.status(200).json({ success: true, data: filtered });
     return;
@@ -257,6 +300,7 @@ const updateTask = async (
       assignedById = undefined,
       assigneeId = undefined,
       statusId,
+      sortOrder,
     } = incoming;
 
     // Helper to see if a field was provided in the request body (even if null)
@@ -365,6 +409,14 @@ const updateTask = async (
           success: false,
           error: "statusId must be a number or null.",
         });
+        return;
+      }
+    }
+
+    if (has("sortOrder")) {
+      dataToUpdate.sortOrder = Number(incoming.sortOrder);
+      if (Number.isNaN(dataToUpdate.sortOrder)) {
+        res.status(400).json({ success: false, error: "sortOrder must be a number." });
         return;
       }
     }
@@ -521,4 +573,34 @@ const deleteTask = async (req: Request<{ id: string }>, res: Response): Promise<
   }
 };
 
-export { createTask, deleteTask, getTask, getTasks, updateTask };
+const rebalanceTasks = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { projectId, parentTaskId } = req.body as {
+      projectId?: number;
+      parentTaskId?: number | null;
+    };
+    if (!projectId) {
+      res.status(400).json({ success: false, error: "projectId is required" });
+      return;
+    }
+
+    const tasks = await prisma.task.findMany({
+      where: { projectId, parentTaskId: parentTaskId ?? null },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      select: { id: true },
+    });
+
+    await prisma.$transaction(
+      tasks.map((t, i) =>
+        prisma.task.update({ where: { id: t.id }, data: { sortOrder: i * SORT_GAP } }),
+      ),
+    );
+
+    invalidatePattern(`tasks:project:${projectId}`).catch(() => {});
+    res.status(200).json({ success: true, message: `Rebalanced ${tasks.length} tasks` });
+  } catch {
+    res.status(500).json({ success: false, error: "Failed to rebalance tasks" });
+  }
+};
+
+export { createTask, deleteTask, getTask, getTasks, rebalanceTasks, updateTask };

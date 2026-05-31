@@ -121,67 +121,74 @@ export const createActivity = async (req: Request, res: Response): Promise<Respo
  */
 export const getActivities = async (req: Request, res: Response): Promise<Response> => {
   try {
-    // pick target (like { key: 'epicId', id: 1 })
     const { taskId } = req.query as { taskId?: unknown };
     const parsedTaskId = parseInt(String(taskId), 10);
     if (Number.isNaN(parsedTaskId)) {
       return err(res, 400, "taskId is required and must be a number.");
     }
-    const cacheKey = `activities:task:${parsedTaskId}`;
-    const cached = await getJSON<any[]>(cacheKey);
-    if (cached) {
-      return res.status(200).json({ success: true, data: cached, meta: { total: cached.length } });
-    }
 
-    const rows = await prisma.activity.findMany({
-      where: {
-        taskId: parsedTaskId,
-      },
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        assets: true,
-      },
-      orderBy: { createdAt: "asc" },
-    });
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
 
-    // build tree util - preserves order of 'rows' (we fetched asc)
+    const cacheKey = `activities:task:${parsedTaskId}:page:${page}:limit:${limit}`;
+    const cached = await getJSON<{ data: any[]; meta: any }>(cacheKey);
+    if (cached) return res.status(200).json({ success: true, ...cached });
+
+    const where = { taskId: parsedTaskId };
+    const [total, roots] = await Promise.all([
+      prisma.activity.count({ where: { ...where, parentId: null } }),
+      prisma.activity.findMany({
+        where: { ...where, parentId: null },
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+          assets: true,
+        },
+        orderBy: { createdAt: "asc" },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const rootIds = roots.map((r) => r.id);
+    const replies = rootIds.length > 0
+      ? await prisma.activity.findMany({
+          where: { taskId: parsedTaskId, parentId: { in: rootIds } },
+          include: {
+            user: { select: { id: true, name: true, email: true } },
+            assets: true,
+          },
+          orderBy: { createdAt: "asc" },
+        })
+      : [];
+
+    const rows = [...roots, ...replies];
+
     function buildTree(flat: any[]) {
-      // sort by createdAt ascending so replies are chronological
       flat.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
       const map = new Map(flat.map((item: any) => [item.id, { ...item, replies: [] }]));
-      const roots: any[] = [];
-
+      const rootsOut: any[] = [];
       for (const item of flat) {
         const node = map.get(item.id);
         if (item.parentId) {
           const parent = map.get(item.parentId);
           if (parent) parent.replies.push(node);
-          else roots.push(node); // orphaned reply -> treat as root
+          else rootsOut.push(node);
         } else {
-          roots.push(node);
+          rootsOut.push(node);
         }
       }
-
-      return roots;
+      return rootsOut;
     }
 
-    const treeAsc = buildTree(rows); // replies ordered per replyOrder
+    const tree = buildTree(rows);
+    const meta = { total, page, limit, totalPages: Math.ceil(total / limit) };
+    setJSON(cacheKey, { data: tree, meta }, 60).catch(() => {});
 
-    const finalTree = treeAsc;
-
-    setJSON(cacheKey, finalTree, 60).catch(() => {});
-
-    return res.status(200).json({
-      success: true,
-      data: finalTree,
-      meta: {
-        total: rows.length,
-      },
-    });
+    return res.status(200).json({ success: true, data: tree, meta });
   } catch (e) {
-    console.error("getActivitiesTreeTree error:", e);
-    return err(res, 500, "Failed to fetch ActivitiesgetActivitiesTree.");
+    console.error("getActivities error:", e);
+    return err(res, 500, "Failed to fetch activities.");
   }
 };
 

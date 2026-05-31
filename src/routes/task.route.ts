@@ -5,11 +5,13 @@ import {
   deleteTask,
   getTask,
   getTasks,
+  rebalanceTasks,
   updateTask,
 } from "../controllers/task.controller";
 
 const router = express.Router();
 
+router.post("/rebalance", rebalanceTasks);
 router.post("/", createTask);
 router.get("/", getTasks);
 router.get("/:id", getTask);

@@ -196,13 +196,26 @@ const getMembers = async (req: Request, res: Response) => {
       return err(res, 500, "Creator Id should be sent");
     }
 
-    const member = await prisma.teamMember.findMany({
-      where,
-      orderBy: { addedAt: "desc" },
-      include: { team: true },
-    });
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
 
-    return res.status(200).json({ success: true, data: member });
+    const [member, total] = await Promise.all([
+      prisma.teamMember.findMany({
+        where,
+        orderBy: { addedAt: "desc" },
+        include: { team: true },
+        skip,
+        take: limit,
+      }),
+      prisma.teamMember.count({ where }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: member,
+      meta: { total, page, limit, pages: Math.ceil(total / limit) },
+    });
   } catch (e) {
     console.error("getmember error:", e);
     return err(res, 500, "Failed to fetch member.");
